@@ -121,6 +121,7 @@ interface AdminStudioViewProps {
     targetTrack?: 'utbk' | 'kedinasan' | 'both';
     targetCampus?: string;
     photoDataUrl?: string;
+    clearPhoto?: boolean;
   }) => Promise<void>;
   onRefreshParticipants?: () => Promise<void>;
   onNotify: (text: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -261,6 +262,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
   const [pFormTrack, setPFormTrack] = useState<'utbk' | 'kedinasan' | 'both'>('utbk');
   const [pFormCampus, setPFormCampus] = useState('');
   const [pFormPhoto, setPFormPhoto] = useState('');
+  const [editingOriginalPhotoUrl, setEditingOriginalPhotoUrl] = useState('');
   const [savingParticipantForm, setSavingParticipantForm] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [isParsingFile, setIsParsingFile] = useState(false);
@@ -534,6 +536,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
     setPFormTrack('utbk');
     setPFormCampus('');
     setPFormPhoto('');
+    setEditingOriginalPhotoUrl('');
   };
 
   const openEditParticipant = (p: ParticipantRecord) => {
@@ -549,6 +552,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
     );
     setPFormCampus(p.targetCampus || '');
     setPFormPhoto(p.photoUrl || '');
+    setEditingOriginalPhotoUrl(p.photoUrl || '');
   };
 
   const handleSelectParticipantPhotoFile = (file: File) => {
@@ -557,6 +561,26 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
       if (typeof reader.result !== 'string') return;
       const compressed = await compressDataUrlImage(reader.result, 400, 0.85);
       setPFormPhoto(compressed);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleQuickUploadRowPhoto = (p: ParticipantRecord, file: File) => {
+    if (!onAdminUpsertParticipant) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      if (typeof reader.result !== 'string') return;
+      const compressed = await compressDataUrlImage(reader.result, 400, 0.85);
+      await onAdminUpsertParticipant({
+        uid: p.uid,
+        displayName: p.displayName,
+        username: p.username,
+        school: p.school,
+        phone: p.phone,
+        targetTrack: p.targetTrack,
+        targetCampus: p.targetCampus,
+        photoDataUrl: compressed,
+      });
     };
     reader.readAsDataURL(file);
   };
@@ -574,6 +598,9 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
     }
     setSavingParticipantForm(true);
     try {
+      const shouldClearPhoto = Boolean(
+        editingParticipantUid && editingOriginalPhotoUrl && !pFormPhoto
+      );
       await onAdminUpsertParticipant({
         uid: editingParticipantUid || undefined,
         displayName: pFormName.trim(),
@@ -584,6 +611,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
         targetTrack: pFormTrack,
         targetCampus: pFormCampus.trim(),
         photoDataUrl: pFormPhoto || undefined,
+        clearPhoto: shouldClearPhoto || undefined,
       });
       resetParticipantEditor();
       setShowAddParticipantForm(false);
@@ -3381,14 +3409,14 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
       </div>
 
       {/* Full-Width Database Peserta Terdaftar (Akun Tanpa Google + Firebase + Upload Foto Profil) */}
-      <div id="admin-participant-database" className="glass-card p-5 sm:p-6 rounded-3xl space-y-4 border-sky-500/35">
+      <div id="admin-participant-database" className="glass-card p-5 sm:p-6 rounded-3xl space-y-4 border border-sky-400/25">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-extrabold text-white flex items-center gap-2">
               <span aria-hidden="true">👥</span> Database Peserta Terdaftar ({participants.length})
             </h3>
-            <p className="text-[11px] text-slate-400">
-              Kelola seluruh peserta yang mendaftar &amp; login (Nama + Kata Sandi atau Google), tambahkan peserta baru, dan upload foto profil peserta langsung dari panel ini.
+            <p className="text-[11px] text-slate-300">
+              Kelola seluruh peserta yang mendaftar &amp; login, tambahkan peserta baru, dan upload foto profil agar langsung terlihat oleh seluruh peserta.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -3398,7 +3426,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
               onChange={(e) => setParticipantSearch(e.target.value)}
               placeholder="Cari nama / username..."
               aria-label="Cari peserta terdaftar"
-              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none w-36 sm:w-44"
+              className="px-3 py-1.5 rounded-xl bg-[#071124] border border-sky-400/20 text-xs text-white placeholder:text-slate-400 outline-none focus:border-sky-400 w-36 sm:w-44"
             />
             {onAdminUpsertParticipant && (
               <button
@@ -3412,7 +3440,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                     setShowAddParticipantForm(true);
                   }
                 }}
-                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shrink-0 whitespace-nowrap transition"
+                className="btn-gold px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 whitespace-nowrap transition"
               >
                 {showAddParticipantForm && !editingParticipantUid
                   ? 'Tutup Form'
@@ -3423,7 +3451,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
               <button
                 type="button"
                 onClick={onRefreshParticipants}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-200 text-xs font-bold shrink-0 whitespace-nowrap transition"
+                className="px-3 py-1.5 rounded-xl bg-[#0d1f42] hover:bg-[#142c5c] border border-sky-400/25 text-sky-100 text-xs font-bold shrink-0 whitespace-nowrap transition"
               >
                 Muat Ulang
               </button>
@@ -3432,7 +3460,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
               type="button"
               onClick={handleExportParticipantsExcel}
               disabled={participants.length === 0}
-              className="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 disabled:opacity-40 border border-emerald-400/40 text-emerald-200 text-xs font-bold shrink-0 whitespace-nowrap"
+              className="px-3 py-1.5 rounded-xl bg-emerald-600/25 hover:bg-emerald-600/45 disabled:opacity-40 border border-emerald-400/40 text-emerald-200 text-xs font-bold shrink-0 whitespace-nowrap"
             >
               📥 Excel Peserta
             </button>
@@ -3444,7 +3472,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                 disabled={participants.length === 0}
                 className="px-3 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 disabled:opacity-40 border border-rose-500/40 text-rose-200 text-xs font-bold shrink-0 whitespace-nowrap transition"
               >
-                🗑️ Hapus Semua
+                Hapus Semua
               </button>
             )}
           </div>
@@ -3455,10 +3483,10 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
           <form
             id="admin-participant-upsert-form"
             onSubmit={handleSubmitParticipantForm}
-            className="p-4 rounded-2xl bg-slate-950/85 border border-indigo-400/35 space-y-3"
+            className="p-4 rounded-2xl bg-[#071124]/90 border border-sky-400/25 space-y-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs sm:text-sm font-extrabold text-indigo-200">
+              <p className="text-xs sm:text-sm font-extrabold text-white">
                 {editingParticipantUid
                   ? `Perbarui Profil & Foto: ${pFormName}`
                   : 'Tambah Peserta Baru & Upload Foto Profil'}
@@ -3481,15 +3509,15 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                   <img
                     src={pFormPhoto}
                     alt="Preview Foto Peserta"
-                    className="w-16 h-16 rounded-2xl object-cover border border-indigo-400/50"
+                    className="w-16 h-16 rounded-2xl object-cover border border-sky-400/35 bg-[#09162e]"
                   />
                 ) : (
-                  <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-dashed border-slate-700 flex items-center justify-center text-[11px] text-slate-400 text-center px-1">
+                  <div className="w-16 h-16 rounded-2xl bg-[#09162e] border border-dashed border-sky-400/30 flex items-center justify-center text-[11px] text-sky-300/80 text-center px-1">
                     Belum ada foto
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <label className="inline-block cursor-pointer px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 text-[11px] font-bold transition">
+                  <label className="inline-block cursor-pointer px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-[11px] font-bold transition shadow-sm">
                     {pFormPhoto ? 'Ganti Foto Profil' : 'Upload Foto Peserta'}
                     <input
                       type="file"
@@ -3516,7 +3544,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 flex-1 w-full">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[10px] font-bold text-sky-100/90 mb-1">
                     Nama Lengkap *
                   </label>
                   <input
@@ -3526,11 +3554,11 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                     value={pFormName}
                     onChange={(e) => setPFormName(e.target.value)}
                     placeholder="Nama Peserta"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none focus:border-indigo-400"
+                    className="w-full px-3 py-2 rounded-xl bg-[#09162e] border border-sky-400/20 text-xs text-white outline-none focus:border-sky-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[10px] font-bold text-sky-100/90 mb-1">
                     Username Login (Opsional)
                   </label>
                   <input
@@ -3539,11 +3567,11 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                     value={pFormUsername}
                     onChange={(e) => setPFormUsername(e.target.value)}
                     placeholder="misal: ahmad.rizky"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono outline-none focus:border-indigo-400"
+                    className="w-full px-3 py-2 rounded-xl bg-[#09162e] border border-sky-400/20 text-xs text-sky-200 font-mono outline-none focus:border-sky-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[10px] font-bold text-sky-100/90 mb-1">
                     {editingParticipantUid
                       ? 'Kata Sandi Baru (Opsional)'
                       : 'Kata Sandi Login (Min. 6)'}
@@ -3556,11 +3584,11 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                     placeholder={
                       editingParticipantUid ? 'Kosongkan jika tetap' : 'Default: 123456'
                     }
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none focus:border-indigo-400"
+                    className="w-full px-3 py-2 rounded-xl bg-[#09162e] border border-sky-400/20 text-xs text-white outline-none focus:border-sky-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[10px] font-bold text-sky-100/90 mb-1">
                     Asal Sekolah / Instansi
                   </label>
                   <input
@@ -3569,11 +3597,11 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                     value={pFormSchool}
                     onChange={(e) => setPFormSchool(e.target.value)}
                     placeholder="SMAN 1 / MAN IC"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none focus:border-indigo-400"
+                    className="w-full px-3 py-2 rounded-xl bg-[#09162e] border border-sky-400/20 text-xs text-white outline-none focus:border-sky-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[10px] font-bold text-sky-100/90 mb-1">
                     Jalur Target
                   </label>
                   <select
@@ -3581,7 +3609,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                     onChange={(e) =>
                       setPFormTrack(e.target.value as 'utbk' | 'kedinasan' | 'both')
                     }
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none focus:border-indigo-400"
+                    className="w-full px-3 py-2 rounded-xl bg-[#09162e] border border-sky-400/20 text-xs text-white outline-none focus:border-sky-400"
                   >
                     <option value="utbk">SNBT / UTBK</option>
                     <option value="kedinasan">Sekolah Kedinasan</option>
@@ -3589,7 +3617,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[10px] font-bold text-sky-100/90 mb-1">
                     Target Kampus / Prodi
                   </label>
                   <input
@@ -3598,7 +3626,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                     value={pFormCampus}
                     onChange={(e) => setPFormCampus(e.target.value)}
                     placeholder="ITB / UI / PKN STAN"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none focus:border-indigo-400"
+                    className="w-full px-3 py-2 rounded-xl bg-[#09162e] border border-sky-400/20 text-xs text-white outline-none focus:border-sky-400"
                   />
                 </div>
               </div>
@@ -3608,7 +3636,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
               <button
                 type="submit"
                 disabled={savingParticipantForm}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold text-xs transition"
+                className="btn-gold px-4 py-2 rounded-xl disabled:opacity-60 font-bold text-xs transition"
               >
                 {savingParticipantForm
                   ? 'Menyimpan...'
@@ -3620,9 +3648,9 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
           </form>
         )}
 
-        <div className="overflow-x-auto rounded-2xl border border-slate-800 max-h-80 custom-scrollbar">
+        <div className="overflow-x-auto rounded-2xl border border-sky-400/20 max-h-80 custom-scrollbar">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-900 text-slate-400 text-[11px] sticky top-0">
+            <thead className="bg-[#0d1f42] text-sky-200 text-[11px] sticky top-0 border-b border-sky-400/20">
               <tr>
                 <th className="py-2.5 px-3">No</th>
                 <th className="py-2.5 px-3">Profil Peserta</th>
@@ -3638,7 +3666,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800 bg-slate-950/60">
+            <tbody className="divide-y divide-sky-400/10 bg-[#071124]/85">
               {filteredParticipants.length === 0 ? (
                 <tr>
                   <td
@@ -3660,10 +3688,10 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                           <img
                             src={p.photoUrl}
                             alt={p.displayName}
-                            className="w-8 h-8 rounded-full object-cover border border-sky-400/50 shrink-0"
+                            className="w-9 h-9 rounded-full object-cover border border-sky-400/35 bg-[#09162e] shrink-0"
                           />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-indigo-500/25 border border-indigo-400/40 flex items-center justify-center text-[11px] font-bold text-indigo-200 shrink-0">
+                          <div className="w-9 h-9 rounded-full bg-[#0d1f42] border border-sky-400/25 flex items-center justify-center text-[11px] font-bold text-sky-100 shrink-0">
                             {(p.displayName || 'P').slice(0, 2).toUpperCase()}
                           </div>
                         )}
@@ -3672,11 +3700,11 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                     </td>
                     <td className="py-2.5 px-3 text-[11px]">
                       {p.username ? (
-                        <span className="block font-mono text-indigo-300 font-semibold">
+                        <span className="block font-mono text-sky-300 font-semibold">
                           @{p.username}
                         </span>
                       ) : null}
-                      <span className="block text-sky-300 font-mono truncate max-w-[180px]">
+                      <span className="block text-slate-400 font-mono truncate max-w-[180px]">
                         {p.email && !p.email.endsWith('@peserta.hafizeducation.my.id')
                           ? p.email
                           : p.authMethod === 'password'
@@ -3685,19 +3713,19 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                       </span>
                     </td>
                     <td className="py-2.5 px-3 text-[11px] text-slate-300">
-                      <span className="block font-semibold text-white/90">{p.school || '-'}</span>
+                      <span className="block font-semibold text-slate-200">{p.school || '-'}</span>
                       {p.targetCampus && (
-                        <span className="block text-teal-300 truncate max-w-[170px]">{p.targetCampus}</span>
+                        <span className="block text-slate-400 truncate max-w-[170px]">{p.targetCampus}</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-center font-bold text-purple-300 tabular-nums">
+                    <td className="py-2.5 px-3 text-center font-bold text-sky-200 tabular-nums">
                       {p.savedSkdSummary ? p.savedSkdSummary.total : '-'}
                     </td>
-                    <td className="py-2.5 px-3 text-center text-slate-200 tabular-nums">{p.quizCount}x</td>
+                    <td className="py-2.5 px-3 text-center text-sky-100 tabular-nums">{p.quizCount}x</td>
                     <td className="py-2.5 px-3 text-center font-extrabold text-emerald-300 tabular-nums">
                       {p.bestGrade}
                     </td>
-                    <td className="py-2.5 px-3 text-right font-bold text-cyan-300 tabular-nums">
+                    <td className="py-2.5 px-3 text-right font-bold text-white tabular-nums">
                       {p.totalPoints}
                     </td>
                     <td className="py-2.5 px-3 text-right text-slate-400 whitespace-nowrap">
@@ -3707,15 +3735,33 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                       <td className="py-2.5 px-3 text-center">
                         <div className="inline-flex items-center gap-1.5">
                           {onAdminUpsertParticipant && (
-                            <button
-                              type="button"
-                              onClick={() => openEditParticipant(p)}
-                              aria-label={`Upload foto atau edit ${p.displayName}`}
-                              title="Upload Foto / Edit Profil"
-                              className="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 font-bold text-[11px] whitespace-nowrap transition"
-                            >
-                              Foto / Edit
-                            </button>
+                            <>
+                              <label
+                                title={`Upload foto langsung untuk ${p.displayName}`}
+                                className="cursor-pointer px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold text-[11px] whitespace-nowrap transition shadow-sm"
+                              >
+                                Upload Foto
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) handleQuickUploadRowPhoto(p, f);
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => openEditParticipant(p)}
+                                aria-label={`Edit profil ${p.displayName}`}
+                                title="Edit Profil & Foto"
+                                className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-400/35 text-amber-200 font-bold text-[11px] whitespace-nowrap transition"
+                              >
+                                Edit
+                              </button>
+                            </>
                           )}
                           {onRequestDeleteParticipant && (
                             <button
@@ -3725,7 +3771,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                               title={`Hapus peserta ${p.displayName}`}
                               className="px-2.5 py-1 rounded-lg bg-rose-950/90 hover:bg-rose-900 border border-rose-500/40 text-rose-300 font-bold text-[11px] whitespace-nowrap transition"
                             >
-                              🗑️ Hapus
+                              Hapus
                             </button>
                           )}
                         </div>

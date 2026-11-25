@@ -154,3 +154,12 @@ export interface ToastMessage {
   text: string;
   type: 'info' | 'success' | 'warning' | 'error';
 }
+
+export interface PublicParticipantProfile {
+  uid: string;
+  displayName: string;
+  photoUrl: string;
+  school?: string;
+  targetCampus?: string;
+}
+

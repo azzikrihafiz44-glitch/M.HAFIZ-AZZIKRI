@@ -1,4 +1,22 @@
 import React, { useMemo, useState } from 'react';
+import {
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  Clock,
+  Eye,
+  Landmark,
+  Lock,
+  Pencil,
+  PlaySquare,
+  Radio,
+  Search,
+  Target,
+  Trash2,
+  Users,
+  Video,
+  X,
+} from 'lucide-react';
 import type { HistoryRecord, QuizRoom } from '../types/quiz';
 import type { LiveTeachingSession } from '../firebase';
 import type { PortalTab } from '../data/academicCatalog';
@@ -56,7 +74,7 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
     shortLabel: 'UTBK-SNBT',
     subtitle: 'Persiapan masuk PTN favorit: TPS, Literasi Bahasa & Penalaran Matematika.',
     primaryPortal: 'tryout-utbk',
-    primaryCta: 'Mulai Try Out UTBK →',
+    primaryCta: 'Mulai Try Out UTBK',
     subjects: [
       {
         id: 'utbk-pu',
@@ -64,8 +82,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: '12 Topik · Latihan HOTS',
         tag: 'Try Out & Pembahasan',
         portalTab: 'tryout-utbk',
-        accentBg: 'from-teal-500/25 to-cyan-500/15 border-teal-400/40',
-        accentText: 'text-teal-300',
+        accentBg: 'bg-sky-500/15 border-sky-400/30',
+        accentText: 'text-sky-200',
         badgeText: 'PU',
       },
       {
@@ -74,8 +92,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: '14 Topik · Rumus Cepat',
         tag: 'Drilling Soal',
         portalTab: 'tryout-utbk',
-        accentBg: 'from-sky-500/25 to-blue-500/15 border-sky-400/40',
-        accentText: 'text-sky-300',
+        accentBg: 'bg-sky-500/15 border-sky-400/30',
+        accentText: 'text-sky-200',
         badgeText: 'PK',
       },
       {
@@ -84,8 +102,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: '10 Topik · Studi Kasus',
         tag: 'Simulasi SNBT',
         portalTab: 'tryout-utbk',
-        accentBg: 'from-indigo-500/25 to-violet-500/15 border-indigo-400/40',
-        accentText: 'text-indigo-300',
+        accentBg: 'bg-sky-500/15 border-sky-400/30',
+        accentText: 'text-sky-200',
         badgeText: 'PM',
       },
       {
@@ -94,8 +112,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: '16 Topik · Analisis Teks',
         tag: 'Pemahaman Bacaan',
         portalTab: 'tryout-utbk',
-        accentBg: 'from-amber-500/25 to-orange-500/15 border-amber-400/40',
-        accentText: 'text-amber-300',
+        accentBg: 'bg-sky-500/15 border-sky-400/30',
+        accentText: 'text-sky-200',
         badgeText: 'LIT',
       },
     ],
@@ -106,7 +124,7 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
     shortLabel: 'Kedinasan',
     subtitle: 'Persiapan Sekolah Kedinasan (STAN, STIS, IPDN, STIN): Try Out SKD, Modul TWK/TIU/TKP & Video.',
     primaryPortal: 'kedinasan',
-    primaryCta: 'Buka Portal Kedinasan →',
+    primaryCta: 'Buka Portal Kedinasan',
     subjects: [
       {
         id: 'ked-twk',
@@ -114,8 +132,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Pancasila · UUD 1945 · NKRI',
         tag: 'Modul & Video',
         portalTab: 'kedinasan',
-        accentBg: 'from-purple-500/25 to-fuchsia-500/15 border-purple-400/40',
-        accentText: 'text-purple-300',
+        accentBg: 'bg-teal-500/15 border-teal-400/35',
+        accentText: 'text-teal-200',
         badgeText: 'TWK',
       },
       {
@@ -124,8 +142,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Verbal · Numerik · Figural',
         tag: 'Drilling SKD',
         portalTab: 'kedinasan',
-        accentBg: 'from-indigo-500/25 to-violet-500/15 border-indigo-400/40',
-        accentText: 'text-indigo-300',
+        accentBg: 'bg-teal-500/15 border-teal-400/35',
+        accentText: 'text-teal-200',
         badgeText: 'TIU',
       },
       {
@@ -134,8 +152,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Pelayanan · Jejaring · Profesionalisme',
         tag: 'Strategi Skor 5',
         portalTab: 'kedinasan',
-        accentBg: 'from-teal-500/25 to-cyan-500/15 border-teal-400/40',
-        accentText: 'text-teal-300',
+        accentBg: 'bg-teal-500/15 border-teal-400/35',
+        accentText: 'text-teal-200',
         badgeText: 'TKP',
       },
       {
@@ -144,8 +162,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Simulasi Passing Grade SKD',
         tag: 'Try Out Resmi',
         portalTab: 'kedinasan',
-        accentBg: 'from-amber-500/25 to-orange-500/15 border-amber-400/40',
-        accentText: 'text-amber-300',
+        accentBg: 'bg-teal-500/15 border-teal-400/35',
+        accentText: 'text-teal-200',
         badgeText: 'SKD',
       },
     ],
@@ -156,7 +174,7 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
     shortLabel: 'Kelas XII',
     subtitle: 'Pendalaman materi kelas akhir, persiapan ASAS XII, dan kelulusan SMA/MA.',
     primaryPortal: 'sma',
-    primaryCta: 'Buka Ruang Belajar XII →',
+    primaryCta: 'Buka Ruang Belajar XII',
     subjects: [
       {
         id: 'k12-mtk',
@@ -164,8 +182,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Dimensi Tiga · Statistika · Peluang',
         tag: 'Ringkasan & Kuis',
         portalTab: 'sma',
-        accentBg: 'from-teal-500/25 to-emerald-500/15 border-teal-400/40',
-        accentText: 'text-teal-300',
+        accentBg: 'bg-indigo-500/15 border-indigo-400/35',
+        accentText: 'text-indigo-200',
         badgeText: 'MTK',
       },
       {
@@ -174,8 +192,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Listrik · Medan Magnet · Fisika Modern',
         tag: 'Rumus & Latihan',
         portalTab: 'sma',
-        accentBg: 'from-sky-500/25 to-indigo-500/15 border-sky-400/40',
-        accentText: 'text-sky-300',
+        accentBg: 'bg-indigo-500/15 border-indigo-400/35',
+        accentText: 'text-indigo-200',
         badgeText: 'FIS',
       },
       {
@@ -184,8 +202,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Sifat Koligatif · Redoks · Organik',
         tag: 'Modul Lengkap',
         portalTab: 'sma',
-        accentBg: 'from-purple-500/25 to-fuchsia-500/15 border-purple-400/40',
-        accentText: 'text-purple-300',
+        accentBg: 'bg-indigo-500/15 border-indigo-400/35',
+        accentText: 'text-indigo-200',
         badgeText: 'KIM',
       },
       {
@@ -194,8 +212,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Metabolisme · Genetika · Evolusi',
         tag: 'Konsep & Evaluasi',
         portalTab: 'sma',
-        accentBg: 'from-emerald-500/25 to-teal-500/15 border-emerald-400/40',
-        accentText: 'text-emerald-300',
+        accentBg: 'bg-indigo-500/15 border-indigo-400/35',
+        accentText: 'text-indigo-200',
         badgeText: 'BIO',
       },
     ],
@@ -206,7 +224,7 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
     shortLabel: 'Kelas XI',
     subtitle: 'Kuasai materi inti kelas XI dengan rangkuman konsep dan latihan terarah.',
     primaryPortal: 'sma',
-    primaryCta: 'Buka Ruang Belajar XI →',
+    primaryCta: 'Buka Ruang Belajar XI',
     subjects: [
       {
         id: 'k11-mtk',
@@ -214,8 +232,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Matriks · Turunan · Integral',
         tag: 'Ringkasan & Kuis',
         portalTab: 'sma',
-        accentBg: 'from-teal-500/25 to-cyan-500/15 border-teal-400/40',
-        accentText: 'text-teal-300',
+        accentBg: 'bg-emerald-500/15 border-emerald-400/35',
+        accentText: 'text-emerald-200',
         badgeText: 'MTK',
       },
       {
@@ -224,8 +242,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Fluida · Termodinamika · Gelombang',
         tag: 'Rumus Cepat',
         portalTab: 'sma',
-        accentBg: 'from-sky-500/25 to-blue-500/15 border-sky-400/40',
-        accentText: 'text-sky-300',
+        accentBg: 'bg-emerald-500/15 border-emerald-400/35',
+        accentText: 'text-emerald-200',
         badgeText: 'FIS',
       },
       {
@@ -234,8 +252,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Termokimia · Laju Reaksi · Asam Basa',
         tag: 'Latihan Soal',
         portalTab: 'sma',
-        accentBg: 'from-violet-500/25 to-indigo-500/15 border-violet-400/40',
-        accentText: 'text-violet-300',
+        accentBg: 'bg-emerald-500/15 border-emerald-400/35',
+        accentText: 'text-emerald-200',
         badgeText: 'KIM',
       },
       {
@@ -244,8 +262,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Pendapatan Nasional · APBN · Inflasi',
         tag: 'Studi Kasus',
         portalTab: 'sma',
-        accentBg: 'from-amber-500/25 to-yellow-500/15 border-amber-400/40',
-        accentText: 'text-amber-300',
+        accentBg: 'bg-emerald-500/15 border-emerald-400/35',
+        accentText: 'text-emerald-200',
         badgeText: 'EKO',
       },
     ],
@@ -256,7 +274,7 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
     shortLabel: 'Kelas X',
     subtitle: 'Fondasi kuat Kurikulum Merdeka untuk semua mata pelajaran utama kelas X.',
     primaryPortal: 'sma',
-    primaryCta: 'Buka Ruang Belajar X →',
+    primaryCta: 'Buka Ruang Belajar X',
     subjects: [
       {
         id: 'k10-mtk',
@@ -264,8 +282,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Eksponen · Logaritma · Trigonometri',
         tag: 'Konsep Dasar',
         portalTab: 'sma',
-        accentBg: 'from-teal-500/25 to-cyan-500/15 border-teal-400/40',
-        accentText: 'text-teal-300',
+        accentBg: 'bg-cyan-500/15 border-cyan-400/35',
+        accentText: 'text-cyan-200',
         badgeText: 'MTK',
       },
       {
@@ -274,8 +292,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Pengukuran · Struktur Atom · Energi',
         tag: 'Modul Interaktif',
         portalTab: 'sma',
-        accentBg: 'from-sky-500/25 to-indigo-500/15 border-sky-400/40',
-        accentText: 'text-sky-300',
+        accentBg: 'bg-cyan-500/15 border-cyan-400/35',
+        accentText: 'text-cyan-200',
         badgeText: 'IPA',
       },
       {
@@ -284,8 +302,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Virus · Keanekaragaman Hayati · Ekosistem',
         tag: 'Ringkasan Visual',
         portalTab: 'sma',
-        accentBg: 'from-emerald-500/25 to-teal-500/15 border-emerald-400/40',
-        accentText: 'text-emerald-300',
+        accentBg: 'bg-cyan-500/15 border-cyan-400/35',
+        accentText: 'text-cyan-200',
         badgeText: 'BIO',
       },
       {
@@ -294,8 +312,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Teks Recount · Narrative · Eksposisi',
         tag: 'Latihan Pemahaman',
         portalTab: 'sma',
-        accentBg: 'from-amber-500/25 to-orange-500/15 border-amber-400/40',
-        accentText: 'text-amber-300',
+        accentBg: 'bg-cyan-500/15 border-cyan-400/35',
+        accentText: 'text-cyan-200',
         badgeText: 'BHS',
       },
     ],
@@ -306,7 +324,7 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
     shortLabel: 'TKA Saintek',
     subtitle: 'Pendalaman khusus rumpun Sains & Teknologi standar seleksi PTN unggulan.',
     primaryPortal: 'tka',
-    primaryCta: 'Buka Modul & Try Out TKA →',
+    primaryCta: 'Buka Modul & Try Out TKA',
     subjects: [
       {
         id: 'tka-mipa',
@@ -314,8 +332,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Limit · Kalkulus · Polinomial',
         tag: 'Modul TKA',
         portalTab: 'tka',
-        accentBg: 'from-teal-500/25 to-cyan-500/15 border-teal-400/40',
-        accentText: 'text-teal-300',
+        accentBg: 'bg-sky-500/15 border-sky-400/30',
+        accentText: 'text-sky-200',
         badgeText: 'MIPA',
       },
       {
@@ -324,8 +342,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Mekanika · Listrik · Optik',
         tag: 'Try Out TKA',
         portalTab: 'tryout-tka',
-        accentBg: 'from-sky-500/25 to-blue-500/15 border-sky-400/40',
-        accentText: 'text-sky-300',
+        accentBg: 'bg-sky-500/15 border-sky-400/30',
+        accentText: 'text-sky-200',
         badgeText: 'FIS',
       },
       {
@@ -334,8 +352,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Stoikiometri · Kesetimbangan · Organik',
         tag: 'Modul TKA',
         portalTab: 'tka',
-        accentBg: 'from-indigo-500/25 to-purple-500/15 border-indigo-400/40',
-        accentText: 'text-indigo-300',
+        accentBg: 'bg-sky-500/15 border-sky-400/30',
+        accentText: 'text-sky-200',
         badgeText: 'KIM',
       },
       {
@@ -344,8 +362,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Sel · Fisiologi · Bioteknologi',
         tag: 'Try Out TKA',
         portalTab: 'tryout-tka',
-        accentBg: 'from-emerald-500/25 to-teal-500/15 border-emerald-400/40',
-        accentText: 'text-emerald-300',
+        accentBg: 'bg-sky-500/15 border-sky-400/30',
+        accentText: 'text-sky-200',
         badgeText: 'BIO',
       },
     ],
@@ -356,7 +374,7 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
     shortLabel: 'TKA Soshum',
     subtitle: 'Materi & simulasi rumpun Sosial Humaniora: Ekonomi, Geografi, Sejarah & Sosiologi.',
     primaryPortal: 'tka',
-    primaryCta: 'Buka Modul & Try Out Soshum →',
+    primaryCta: 'Buka Modul & Try Out Soshum',
     subjects: [
       {
         id: 'tka-eko',
@@ -364,8 +382,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Mikro · Makro · Akuntansi',
         tag: 'Modul TKA',
         portalTab: 'tka',
-        accentBg: 'from-amber-500/25 to-orange-500/15 border-amber-400/40',
-        accentText: 'text-amber-300',
+        accentBg: 'bg-teal-500/15 border-teal-400/35',
+        accentText: 'text-teal-200',
         badgeText: 'EKO',
       },
       {
@@ -374,8 +392,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'SIG · Litosfer · Kependudukan',
         tag: 'Try Out TKA',
         portalTab: 'tryout-tka',
-        accentBg: 'from-teal-500/25 to-emerald-500/15 border-teal-400/40',
-        accentText: 'text-teal-300',
+        accentBg: 'bg-teal-500/15 border-teal-400/35',
+        accentText: 'text-teal-200',
         badgeText: 'GEO',
       },
       {
@@ -384,8 +402,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Nusantara · Pergerakan · Dunia',
         tag: 'Modul TKA',
         portalTab: 'tka',
-        accentBg: 'from-rose-500/25 to-amber-500/15 border-rose-400/40',
-        accentText: 'text-rose-300',
+        accentBg: 'bg-teal-500/15 border-teal-400/35',
+        accentText: 'text-teal-200',
         badgeText: 'SEJ',
       },
       {
@@ -394,8 +412,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Interaksi · Stratifikasi · Perubahan Sosial',
         tag: 'Try Out TKA',
         portalTab: 'tryout-tka',
-        accentBg: 'from-indigo-500/25 to-sky-500/15 border-indigo-400/40',
-        accentText: 'text-indigo-300',
+        accentBg: 'bg-teal-500/15 border-teal-400/35',
+        accentText: 'text-teal-200',
         badgeText: 'SOS',
       },
     ],
@@ -406,7 +424,7 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
     shortLabel: 'ASAS XII',
     subtitle: 'Asesmen Sumatif Akhir Semester XII, rekap nilai, dan unduh E-Sertifikat resmi HD.',
     primaryPortal: 'asas-xii',
-    primaryCta: 'Buka Portal ASAS XII →',
+    primaryCta: 'Buka Portal ASAS XII',
     subjects: [
       {
         id: 'asas-paket',
@@ -414,8 +432,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Simulasi Berwaktu · Anti-Curang',
         tag: 'Evaluasi Resmi',
         portalTab: 'asas-xii',
-        accentBg: 'from-cyan-500/25 to-sky-500/15 border-cyan-400/40',
-        accentText: 'text-cyan-300',
+        accentBg: 'bg-amber-500/15 border-amber-400/35',
+        accentText: 'text-amber-200',
         badgeText: 'ASAS',
       },
       {
@@ -424,8 +442,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Rekap Skor & Peringkat',
         tag: 'Rapor Digital',
         portalTab: 'asas-xii',
-        accentBg: 'from-indigo-500/25 to-blue-500/15 border-indigo-400/40',
-        accentText: 'text-indigo-300',
+        accentBg: 'bg-amber-500/15 border-amber-400/35',
+        accentText: 'text-amber-200',
         badgeText: 'RAPOR',
       },
       {
@@ -434,8 +452,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Siap Cetak · Nomor Unik',
         tag: 'Unduh PNG',
         portalTab: 'asas-xii',
-        accentBg: 'from-amber-500/25 to-yellow-500/15 border-amber-400/40',
-        accentText: 'text-amber-300',
+        accentBg: 'bg-amber-500/15 border-amber-400/35',
+        accentText: 'text-amber-200',
         badgeText: 'CERT',
       },
       {
@@ -444,8 +462,8 @@ const BIMBEL_TRACKS: BimbelTrackConfig[] = [
         chapters: 'Solusi Langkah demi Langkah',
         tag: 'Review Mandiri',
         portalTab: 'asas-xii',
-        accentBg: 'from-teal-500/25 to-emerald-500/15 border-teal-400/40',
-        accentText: 'text-teal-300',
+        accentBg: 'bg-amber-500/15 border-amber-400/35',
+        accentText: 'text-amber-200',
         badgeText: 'BAHAS',
       },
     ],
@@ -516,13 +534,12 @@ export const BimbelCourseHub: React.FC<BimbelCourseHubProps> = ({
   );
 
   return (
-    <section id="bimbel-course-hub" className="pt-4 space-y-6">
-      {/* Ruangguru-Style Student Learning Header & Stats Strip */}
-      <div className="hero-glow-card holo-top-beam rounded-3xl p-5 sm:p-7 space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-sky-400/20 pb-5">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 text-xs font-bold text-teal-300">
-              <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+    <section id="bimbel-course-hub" className="pt-2 space-y-6">
+      <div className="hero-glow-card holo-top-beam rounded-3xl p-5 sm:p-7 space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-sky-400/15 pb-5">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold text-sky-300 uppercase tracking-wider">
+              <BookOpen className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
               <span>Ruang Belajar · Bimbingan Belajar Digital Hafiz Education</span>
             </div>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-white">
@@ -530,110 +547,128 @@ export const BimbelCourseHub: React.FC<BimbelCourseHubProps> = ({
                 ? `Mau belajar apa hari ini, ${playerName.trim()}?`
                 : 'Pilih Jenjang & Mulai Belajar Terstruktur'}
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-300">
               {userEmail
-                ? 'Akun Peserta aktif · Seluruh ruang belajar, try out, dan rapor nilai tersimpan ke database.'
-                : 'Buat akun peserta (Nama & Kata Sandi, tanpa Google) di atas untuk membuka seluruh paket Try Out, Modul TKA, dan E-Sertifikat.'}
+                ? 'Akun Peserta aktif · Seluruh ruang belajar, try out, dan rapor nilai tersinkron ke cloud.'
+                : 'Masuk dengan Google atau buat akun peserta di atas untuk membuka seluruh paket Try Out, Modul TKA, dan E-Sertifikat.'}
             </p>
           </div>
 
           {/* Student Learning Metrics */}
           <div className="grid grid-cols-3 gap-2.5 sm:gap-3 shrink-0">
-            <div className="px-3.5 py-2.5 rounded-2xl bg-slate-900/85 border border-teal-400/25 text-center">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="px-3.5 py-2.5 rounded-2xl bg-[#09162e]/85 border border-sky-400/20 text-center">
+              <p className="text-[10px] font-semibold text-sky-300 uppercase tracking-wider">
                 Kuis Selesai
               </p>
-              <p className="font-hud text-lg font-bold text-teal-300 tabular-nums">
+              <p className="font-hud text-lg font-bold text-white tabular-nums mt-0.5">
                 {userHistory.length}
               </p>
             </div>
-            <div className="px-3.5 py-2.5 rounded-2xl bg-slate-900/85 border border-sky-400/25 text-center">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="px-3.5 py-2.5 rounded-2xl bg-[#09162e]/85 border border-emerald-400/20 text-center">
+              <p className="text-[10px] font-semibold text-emerald-300 uppercase tracking-wider">
                 Rata-rata
               </p>
-              <p className="font-hud text-lg font-bold text-sky-300 tabular-nums">{avgGrade}%</p>
+              <p className="font-hud text-lg font-bold text-emerald-200 tabular-nums mt-0.5">
+                {avgGrade}%
+              </p>
             </div>
-            <div className="px-3.5 py-2.5 rounded-2xl bg-slate-900/85 border border-amber-400/25 text-center">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="px-3.5 py-2.5 rounded-2xl bg-[#09162e]/85 border border-amber-400/20 text-center">
+              <p className="text-[10px] font-semibold text-amber-300 uppercase tracking-wider">
                 Total Poin
               </p>
-              <p className="font-hud text-lg font-bold text-amber-300 tabular-nums">
+              <p className="font-hud text-lg font-bold text-amber-200 tabular-nums mt-0.5">
                 {totalPoints}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Ruangguru-Style Search Bar & Weekly Progress Strip */}
+        {/* Search Bar & Weekly Progress Strip */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
           <div className="lg:col-span-7 relative">
+            <Search
+              className="w-4 h-4 text-sky-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="🔍 Cari mata pelajaran, bab (misal: Kalkulus, TWK, SKD), atau judul Try Out..."
+              placeholder="Cari mata pelajaran, bab (Kalkulus, TWK, SKD), atau judul Try Out..."
               aria-label="Cari materi atau paket Try Out"
-              className="w-full px-4 py-3 rounded-2xl bg-slate-900/90 border border-sky-400/25 focus:border-teal-400 outline-none text-xs sm:text-sm text-white placeholder-slate-400 transition"
+              className="w-full pl-10 pr-10 py-3 rounded-2xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400 outline-none text-xs sm:text-sm text-white placeholder-slate-400 transition"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-white px-2 py-0.5"
+                aria-label="Bersihkan pencarian"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
-          <div className="lg:col-span-5 px-4 py-2.5 rounded-2xl bg-slate-900/80 border border-teal-400/25 space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] font-bold">
-              <span className="text-teal-300">🎯 Target Belajar Mingguan</span>
-              <span className="text-slate-300 tabular-nums">
+          <div className="lg:col-span-5 px-4 py-2.5 rounded-2xl bg-[#09162e]/85 border border-sky-400/20 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-semibold">
+              <span className="text-sky-100 inline-flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-teal-300" aria-hidden="true" />
+                <span>Target Belajar Mingguan</span>
+              </span>
+              <span className="text-amber-300 tabular-nums">
                 {Math.min(userHistory.length, weeklyTarget)}/{weeklyTarget} Paket ({weeklyPct}%)
               </span>
             </div>
-            <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+            <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-teal-400 via-sky-400 to-indigo-400 transition-all duration-500"
+                className="h-full rounded-full bg-gradient-to-r from-sky-400 via-teal-300 to-amber-400 transition-all duration-500"
                 style={{ width: `${Math.max(6, weeklyPct)}%` }}
               />
             </div>
           </div>
         </div>
 
-        {/* Ruangguru Live Teaching Highlight Banner */}
+        {/* Live Teaching Highlight Banner */}
         {featuredLiveSession && (
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-950/60 via-purple-950/60 to-indigo-950/60 border border-rose-400/35 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-950/90 via-[#0c1d3d] to-teal-950/85 border border-sky-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-0.5">
-              <div className="inline-flex items-center gap-2 text-[11px] font-extrabold text-rose-300">
-                <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+              <div className="inline-flex items-center gap-2 text-[11px] font-bold text-rose-300">
+                {featuredLiveSession.isLive ? (
+                  <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" aria-hidden="true" />
+                ) : (
+                  <Radio className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />
+                )}
                 <span>
-                  {featuredLiveSession.isLive ? 'SEDANG LIVE TEACHING (ZOOM)' : 'JADWAL LIVE TEACHING TERDEKAT'} ·{' '}
-                  {featuredLiveSession.category}
+                  {featuredLiveSession.isLive
+                    ? 'SEDANG LIVE TEACHING (ZOOM)'
+                    : 'JADWAL LIVE TEACHING TERDEKAT'}{' '}
+                  · {featuredLiveSession.category}
                 </span>
               </div>
               <p className="text-sm font-bold text-white">{featuredLiveSession.title}</p>
-              <p className="text-[11px] text-slate-300">
+              <p className="text-[11px] text-sky-200/80">
                 Mentor: {featuredLiveSession.tutorName} · {featuredLiveSession.scheduleLabel}
               </p>
             </div>
             <button
               type="button"
               onClick={() => onOpenPortals('live-teaching')}
-              className="px-4 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-extrabold text-xs whitespace-nowrap shrink-0 transition"
+              className="btn-gold px-4 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap shrink-0 transition inline-flex items-center gap-1.5"
             >
-              🎥 Masuk Kelas Live →
+              <Video className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Masuk Kelas Live</span>
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           </div>
         )}
 
-        {/* Jenjang / Program Selector Bar (Ruangguru-inspired) */}
+        {/* Program Selector Bar */}
         <div className="space-y-2.5">
-          <p className="text-xs font-semibold text-slate-300">Pilih Jenjang / Program Belajar:</p>
+          <p className="text-xs font-semibold text-sky-300">Pilih Jenjang / Program Belajar</p>
           <div
             role="tablist"
             aria-label="Pilih Jenjang Bimbingan Belajar"
-            className="flex flex-wrap gap-2"
+            className="flex flex-wrap gap-1.5"
           >
             {BIMBEL_TRACKS.map((track) => {
               const isSelected = track.id === activeTrack.id;
@@ -647,10 +682,10 @@ export const BimbelCourseHub: React.FC<BimbelCourseHubProps> = ({
                     setSelectedTrackId(track.id);
                     setSearchQuery('');
                   }}
-                  className={`px-4 py-2 rounded-2xl text-xs font-bold border transition whitespace-nowrap ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition whitespace-nowrap ${
                     isSelected
-                      ? 'bg-gradient-to-r from-teal-500/30 via-sky-500/30 to-indigo-500/30 border-teal-300/70 text-white shadow-[0_0_20px_rgba(45,212,191,0.22)]'
-                      : 'bg-slate-900/75 border-sky-400/15 text-slate-300 hover:text-white hover:border-sky-400/40'
+                      ? 'bg-sky-500 border-sky-300 text-white font-bold shadow-[0_6px_18px_rgba(14,165,233,0.3)]'
+                      : 'bg-[#09162e]/80 border-sky-400/20 text-slate-300 hover:text-white hover:border-sky-400/45'
                   }`}
                 >
                   {track.label}
@@ -661,18 +696,19 @@ export const BimbelCourseHub: React.FC<BimbelCourseHubProps> = ({
         </div>
 
         {/* Active Track Banner & Subject Grid */}
-        <div className="space-y-4 pt-1">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-slate-900/80 border border-sky-400/20">
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 rounded-2xl bg-[#09162e]/85 border border-sky-400/20">
             <div>
-              <p className="text-xs font-bold text-teal-300">{activeTrack.label}</p>
+              <p className="text-xs font-bold text-sky-200">{activeTrack.label}</p>
               <p className="text-xs text-slate-300 mt-0.5">{activeTrack.subtitle}</p>
             </div>
             <button
               type="button"
               onClick={() => onOpenPortals(activeTrack.primaryPortal)}
-              className="btn-gold px-4 py-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap shrink-0"
+              className="btn-gold px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 inline-flex items-center gap-1.5"
             >
-              {activeTrack.primaryCta}
+              <span>{activeTrack.primaryCta}</span>
+              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           </div>
 
@@ -690,42 +726,41 @@ export const BimbelCourseHub: React.FC<BimbelCourseHubProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <div
-                      className={`px-3 py-1.5 rounded-xl bg-gradient-to-br border font-hud text-xs font-extrabold tracking-wider ${subject.accentBg} ${subject.accentText}`}
+                      className={`px-2.5 py-1 rounded-lg border font-hud text-[11px] font-bold tracking-wider ${subject.accentBg} ${subject.accentText}`}
                     >
                       {subject.badgeText}
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-400">{subject.tag}</span>
+                    <span className="text-[11px] font-medium text-teal-300/90">{subject.tag}</span>
                   </div>
-                  <h3 className="font-display text-base font-bold text-white group-hover:text-teal-200 transition leading-snug">
+                  <h3 className="font-display text-base font-bold text-white group-hover:text-sky-200 transition leading-snug">
                     {subject.name}
                   </h3>
-                  <p className="text-xs text-slate-400 leading-relaxed">{subject.chapters}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{subject.chapters}</p>
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-sky-400/15">
-                  <span className={`text-xs font-bold ${subject.accentText}`}>Mulai Belajar</span>
-                  <span
-                    className={`text-xs font-bold ${subject.accentText} group-hover:translate-x-1 transition`}
-                  >
-                    →
-                  </span>
+                <div className="flex items-center justify-between pt-2.5 border-t border-sky-400/15">
+                  <span className="text-xs font-semibold text-amber-300">Mulai Belajar</span>
+                  <ArrowRight
+                    className="w-3.5 h-3.5 text-amber-300 group-hover:translate-x-1 transition"
+                    aria-hidden="true"
+                  />
                 </div>
               </button>
             ))}
           </div>
 
-          {/* Ruangguru-Style Live Uploaded Try Out & Quiz Packages */}
+          {/* Live Uploaded Try Out & Quiz Packages */}
           {livePublishedRooms.length > 0 && (
-            <div className="pt-3 space-y-3 border-t border-sky-400/15">
+            <div className="pt-4 space-y-3.5 border-t border-sky-400/15">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <h3 className="font-display text-base sm:text-lg font-bold text-white">
-                    📝 Paket Kuis &amp; Try Out Aktif dari Admin
+                    Paket Kuis &amp; Try Out Aktif dari Admin
                   </h3>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-slate-300">
                     Langsung kerjakan paket soal resmi atau pantau jadwal buka otomatisnya
                   </p>
                 </div>
-                <span className="text-xs font-bold text-sky-300 tabular-nums">
+                <span className="text-xs font-semibold text-sky-300 tabular-nums">
                   {livePublishedRooms.length} Paket
                 </span>
               </div>
@@ -736,31 +771,40 @@ export const BimbelCourseHub: React.FC<BimbelCourseHubProps> = ({
                   return (
                     <div
                       key={room.code}
-                      className="glass-card p-4 rounded-2xl flex flex-col justify-between space-y-3 border border-purple-400/25"
+                      className="glass-card p-4 rounded-2xl flex flex-col justify-between space-y-3 border border-sky-400/20"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-[11px]">
-                          <span className="font-bold text-purple-300">{room.category || 'Umum'}</span>
+                          <span className="font-semibold text-sky-300">
+                            {room.category || 'Umum'}
+                          </span>
                           <span className="font-mono text-amber-300 font-bold">{room.code}</span>
                         </div>
                         <h4 className="font-display text-sm sm:text-base font-bold text-white leading-snug">
                           {room.title}
                         </h4>
-                        <p className="text-[11px] text-slate-400">
+                        <p className="text-[11px] text-slate-300">
                           {room.questions.length} Soal · Pembahasan A–E · E-Sertifikat HD
                         </p>
                         {sched.isClosed ? (
-                          <p className="text-[11px] font-semibold text-rose-300 bg-rose-500/10 border border-rose-400/35 rounded-lg px-2.5 py-1">
-                            ⛔ Ditutup {sched.formattedCloseDate}
+                          <p className="text-[11px] font-semibold text-rose-300 bg-rose-500/10 border border-rose-400/30 rounded-lg px-2.5 py-1 inline-flex items-center gap-1.5">
+                            <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
+                            <span>Ditutup {sched.formattedCloseDate}</span>
                           </p>
                         ) : sched.isNotYetOpen ? (
-                          <p className="text-[11px] font-semibold text-amber-300 bg-amber-500/10 border border-amber-400/30 rounded-lg px-2.5 py-1">
-                            🔒 Dibuka {sched.formattedDate} ({sched.countdownLabel})
+                          <p className="text-[11px] font-semibold text-amber-300 bg-amber-500/10 border border-amber-400/25 rounded-lg px-2.5 py-1 inline-flex items-center gap-1.5">
+                            <Clock className="w-3 h-3 shrink-0" aria-hidden="true" />
+                            <span>
+                              Dibuka {sched.formattedDate} ({sched.countdownLabel})
+                            </span>
                           </p>
                         ) : (
-                          <p className="text-[11px] font-semibold text-emerald-300">
-                            🟢 Tersedia Sekarang
-                            {sched.formattedCloseDate ? ` · Tutup ${sched.formattedCloseDate}` : ''}
+                          <p className="text-[11px] font-semibold text-emerald-300 inline-flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                            <span>
+                              Tersedia Sekarang
+                              {sched.formattedCloseDate ? ` · Tutup ${sched.formattedCloseDate}` : ''}
+                            </span>
                           </p>
                         )}
                       </div>
@@ -770,23 +814,38 @@ export const BimbelCourseHub: React.FC<BimbelCourseHubProps> = ({
                           type="button"
                           disabled={sched.isLocked && !isAdmin}
                           onClick={() => onLaunchQuizRoom?.(room)}
-                          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition ${
+                          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 ${
                             sched.isLocked && !isAdmin
                               ? sched.isClosed
-                                ? 'bg-slate-800 border border-rose-400/30 text-rose-200/80 cursor-not-allowed'
-                                : 'bg-slate-800 border border-amber-400/30 text-amber-200/80 cursor-not-allowed'
+                                ? 'bg-slate-900 border border-rose-400/25 text-rose-200/80 cursor-not-allowed'
+                                : 'bg-slate-900 border border-amber-400/25 text-amber-200/80 cursor-not-allowed'
                               : 'btn-gold'
                           }`}
                         >
-                          {sched.isClosed
-                            ? isAdmin
-                              ? '👁️ Preview Admin (Ditutup)'
-                              : '⛔ Soal Sudah Ditutup'
-                            : sched.isNotYetOpen
-                              ? isAdmin
-                                ? '👁️ Preview Admin'
-                                : `🔒 Dibuka ${sched.formattedDate}`
-                              : 'Masuk Lobi Kuis →'}
+                          {sched.isClosed ? (
+                            isAdmin ? (
+                              <>
+                                <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span>Preview Admin (Ditutup)</span>
+                              </>
+                            ) : (
+                              <span>Soal Sudah Ditutup</span>
+                            )
+                          ) : sched.isNotYetOpen ? (
+                            isAdmin ? (
+                              <>
+                                <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span>Preview Admin</span>
+                              </>
+                            ) : (
+                              <span>Dibuka {sched.formattedDate}</span>
+                            )
+                          ) : (
+                            <>
+                              <span>Masuk Lobi Kuis</span>
+                              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                            </>
+                          )}
                         </button>
                         {isAdmin && onEditUploadedRoom && (
                           <button
@@ -794,9 +853,10 @@ export const BimbelCourseHub: React.FC<BimbelCourseHubProps> = ({
                             onClick={() => onEditUploadedRoom(room)}
                             title="Edit soal & jadwal paket ini"
                             aria-label={`Edit soal ${room.title}`}
-                            className="px-3 py-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/40 text-indigo-200 text-xs font-bold transition shrink-0"
+                            className="px-3 py-2.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-sky-100 text-xs font-semibold transition shrink-0 inline-flex items-center gap-1"
                           >
-                            ✏️ Edit
+                            <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span>Edit</span>
                           </button>
                         )}
                         {isAdmin && onDeleteUploadedRoom && (
@@ -805,9 +865,9 @@ export const BimbelCourseHub: React.FC<BimbelCourseHubProps> = ({
                             onClick={() => onDeleteUploadedRoom(room)}
                             title="Hapus paket soal ini"
                             aria-label={`Hapus paket soal ${room.title}`}
-                            className="px-3 py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition shrink-0"
+                            className="p-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/30 text-rose-300 transition shrink-0"
                           >
-                            🗑️
+                            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
                         )}
                       </div>
@@ -820,38 +880,50 @@ export const BimbelCourseHub: React.FC<BimbelCourseHubProps> = ({
         </div>
 
         {/* Quick-Access Bimbel Facilities Strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-sky-400/15">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-4 border-t border-sky-400/15">
           <button
             type="button"
             onClick={() => onOpenPortals('live-teaching')}
-            className="px-4 py-3 rounded-2xl bg-slate-900/75 hover:bg-slate-800/90 border border-rose-400/35 text-left transition"
+            className="px-4 py-3.5 rounded-2xl bg-[#09162e]/80 hover:bg-sky-950/80 border border-sky-400/20 hover:border-sky-400/45 text-left transition flex items-start gap-2.5"
           >
-            <p className="text-xs font-bold text-rose-300">🎥 Live Teaching Zoom</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Kelas Langsung Bersama Mentor</p>
+            <Video className="w-4 h-4 text-sky-300 mt-0.5 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-bold text-white">Live Teaching Zoom</p>
+              <p className="text-[11px] text-slate-300 mt-0.5">Kelas Langsung Bersama Mentor</p>
+            </div>
           </button>
           <button
             type="button"
             onClick={() => onOpenPortals('kedinasan')}
-            className="px-4 py-3 rounded-2xl bg-slate-900/75 hover:bg-slate-800/90 border border-purple-400/35 text-left transition"
+            className="px-4 py-3.5 rounded-2xl bg-[#09162e]/80 hover:bg-teal-950/75 border border-teal-400/20 hover:border-teal-400/45 text-left transition flex items-start gap-2.5"
           >
-            <p className="text-xs font-bold text-purple-300">🏛️ Portal Kedinasan</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Try Out SKD, Modul &amp; Video</p>
+            <Landmark className="w-4 h-4 text-teal-300 mt-0.5 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-bold text-white">Portal Kedinasan</p>
+              <p className="text-[11px] text-slate-300 mt-0.5">Try Out SKD, Modul &amp; Video</p>
+            </div>
           </button>
           <button
             type="button"
             onClick={() => onOpenPortals('sma')}
-            className="px-4 py-3 rounded-2xl bg-slate-900/75 hover:bg-slate-800/90 border border-teal-400/25 text-left transition"
+            className="px-4 py-3.5 rounded-2xl bg-[#09162e]/80 hover:bg-amber-950/45 border border-amber-400/20 hover:border-amber-400/45 text-left transition flex items-start gap-2.5"
           >
-            <p className="text-xs font-bold text-teal-300">🎬 Materi X–XII (Video &amp; PPT)</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Video YouTube, Slide &amp; Rumus</p>
+            <PlaySquare className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-bold text-white">Materi X–XII (Video &amp; PPT)</p>
+              <p className="text-[11px] text-slate-300 mt-0.5">Video YouTube, Slide &amp; Rumus</p>
+            </div>
           </button>
           <button
             type="button"
             onClick={onPreviewLobbyDemo}
-            className="px-4 py-3 rounded-2xl bg-slate-900/75 hover:bg-slate-800/90 border border-indigo-400/25 text-left transition"
+            className="px-4 py-3.5 rounded-2xl bg-[#09162e]/80 hover:bg-emerald-950/60 border border-emerald-400/20 hover:border-emerald-400/45 text-left transition flex items-start gap-2.5"
           >
-            <p className="text-xs font-bold text-indigo-300">🛸 Lobi Kuis</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Belajar Bareng dengan Avatar Favoritmu</p>
+            <Users className="w-4 h-4 text-emerald-300 mt-0.5 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-bold text-white">Lobi Kuis Multiplayer</p>
+              <p className="text-[11px] text-slate-300 mt-0.5">Belajar Bareng dengan Avatar</p>
+            </div>
           </button>
         </div>
       </div>

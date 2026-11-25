@@ -375,6 +375,7 @@ async function startServer() {
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
@@ -899,6 +900,137 @@ async function startServer() {
     res.json({ ok: true, participant: toPublicParticipant(updated) });
   });
 
+  // Sync Firebase Google-signed-in participant to Database Peserta (preserving any Admin-uploaded photo)
+  app.post('/api/participants/sync-google', async (req, res) => {
+    if (!isTrustedSameOriginBrowserRequest(req)) {
+      res.status(403).json({ ok: false, error: 'Akses ditolak.' });
+      return;
+    }
+    const body = (req.body || {}) as {
+      idToken?: string;
+      displayName?: string;
+      school?: string;
+      phone?: string;
+      targetTrack?: string;
+      targetCampus?: string;
+      photoUrl?: string;
+      photoDataUrl?: string;
+    };
+    const idToken = typeof body.idToken === 'string' ? body.idToken.trim() : '';
+    const apiKey = getFirebaseWebApiKey();
+    if (!idToken || idToken.length < 20 || !apiKey) {
+      res.status(400).json({ ok: false, error: 'Token Google tidak valid.' });
+      return;
+    }
+
+    try {
+      const lookupRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        }
+      );
+      const lookupJson = (await lookupRes.json()) as {
+        users?: Array<{ localId?: string; email?: string; displayName?: string; photoUrl?: string }>;
+      };
+      const verified = lookupJson.users?.[0];
+      if (!verified?.localId || !verified.email) {
+        res.status(401).json({ ok: false, error: 'Akun Google tidak terverifikasi.' });
+        return;
+      }
+
+      const records = readParticipantsDb();
+      const idx = records.findIndex((r) => r.uid === verified.localId);
+      const uploadedPhotoUrl = saveParticipantPhotoDataUrl(body.photoDataUrl);
+      const cleanGooglePhoto =
+        typeof body.photoUrl === 'string' && /^https:\/\//.test(body.photoUrl.trim())
+          ? body.photoUrl.trim().slice(0, 500)
+          : typeof verified.photoUrl === 'string' && /^https:\/\//.test(verified.photoUrl)
+            ? verified.photoUrl.slice(0, 500)
+            : '';
+      const nowIso = new Date().toISOString();
+
+      if (idx >= 0) {
+        const prev = records[idx];
+        const nextPhoto = uploadedPhotoUrl || prev.photoUrl || cleanGooglePhoto;
+        const updated: StoredParticipantRecord = {
+          ...prev,
+          displayName:
+            typeof body.displayName === 'string' && body.displayName.trim().length >= 2
+              ? body.displayName.trim().slice(0, 60)
+              : prev.displayName,
+          email: verified.email,
+          school: typeof body.school === 'string' ? body.school.trim().slice(0, 120) : prev.school,
+          phone: typeof body.phone === 'string' ? body.phone.trim().slice(0, 24) : prev.phone,
+          targetTrack:
+            body.targetTrack === 'kedinasan' || body.targetTrack === 'both' || body.targetTrack === 'utbk'
+              ? body.targetTrack
+              : prev.targetTrack,
+          targetCampus:
+            typeof body.targetCampus === 'string'
+              ? body.targetCampus.trim().slice(0, 120)
+              : prev.targetCampus,
+          photoUrl: nextPhoto,
+          updatedAt: nowIso,
+        };
+        records[idx] = updated;
+        writeParticipantsDb(records);
+        res.json({ ok: true, participant: toPublicParticipant(updated) });
+        return;
+      }
+
+      const baseUsername =
+        normalizeUsername(body.displayName || verified.displayName || verified.email.split('@')[0]) ||
+        `g_${verified.localId.slice(0, 8)}`;
+      let username = baseUsername;
+      if (records.some((r) => r.username === username)) {
+        username = `${baseUsername.slice(0, 22)}.${crypto.randomBytes(2).toString('hex')}`;
+      }
+      const created: StoredParticipantRecord = {
+        uid: verified.localId,
+        username,
+        displayName:
+          (typeof body.displayName === 'string' && body.displayName.trim().slice(0, 60)) ||
+          verified.displayName ||
+          verified.email.split('@')[0] ||
+          'Peserta',
+        email: verified.email,
+        photoUrl: uploadedPhotoUrl || cleanGooglePhoto,
+        school: String(body.school || '').trim().slice(0, 120),
+        phone: String(body.phone || '').trim().slice(0, 24),
+        targetTrack:
+          body.targetTrack === 'kedinasan' || body.targetTrack === 'both' ? body.targetTrack : 'utbk',
+        targetCampus: String(body.targetCampus || '').trim().slice(0, 120),
+        authMethod: 'google',
+        avatar: DEFAULT_PARTICIPANT_AVATAR,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      records.unshift(created);
+      writeParticipantsDb(records);
+      res.json({ ok: true, participant: toPublicParticipant(created) });
+    } catch {
+      res.status(502).json({ ok: false, error: 'Gagal menyinkronkan profil Google.' });
+    }
+  });
+
+  // Public non-PII Participant Directory so registered participants can see profile photos & names
+  app.get('/api/participants/public-directory', (_req, res) => {
+    const directory = readParticipantsDb()
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, 120)
+      .map((p) => ({
+        uid: p.uid,
+        displayName: p.displayName,
+        photoUrl: p.photoUrl || '',
+        school: p.school || '',
+        targetCampus: p.targetCampus || '',
+      }));
+    res.json({ ok: true, directory });
+  });
+
   // Admin: List all registered/logged-in participants (with photoUrl, metadata & NO password hashes)
   app.get('/api/participants/list', (req, res) => {
     if (!isTrustedSameOriginBrowserRequest(req) || !isAuthorizedAdminRequest(req)) {
@@ -929,6 +1061,7 @@ async function startServer() {
       targetCampus?: string;
       photoDataUrl?: string;
       photoUrl?: string;
+      clearPhoto?: boolean;
       authMethod?: string;
     };
 
@@ -959,6 +1092,9 @@ async function startServer() {
         typeof body.password === 'string' && body.password.trim().length >= 4
           ? hashParticipantPassword(body.password.trim())
           : prev.passwordHash;
+      const nextPhotoUrl = body.clearPhoto
+        ? ''
+        : uploadedPhotoUrl || cleanDirectPhotoUrl || prev.photoUrl;
       const updated: StoredParticipantRecord = {
         ...prev,
         username: nextUsername,
@@ -977,7 +1113,7 @@ async function startServer() {
           typeof body.targetCampus === 'string'
             ? body.targetCampus.trim().slice(0, 120)
             : prev.targetCampus,
-        photoUrl: uploadedPhotoUrl || cleanDirectPhotoUrl || prev.photoUrl,
+        photoUrl: nextPhotoUrl,
         passwordHash: nextPasswordHash,
         updatedAt: nowIso,
       };

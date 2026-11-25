@@ -9,6 +9,7 @@ interface AdminGateModalProps {
   onGoogleAdminLogin: () => Promise<void>;
   onCopyPassword: () => void;
   onClose: () => void;
+  googleRecoveryMessage?: string;
 }
 
 export const AdminGateModal: React.FC<AdminGateModalProps> = ({
@@ -18,6 +19,7 @@ export const AdminGateModal: React.FC<AdminGateModalProps> = ({
   onVerify,
   onGoogleAdminLogin,
   onClose,
+  googleRecoveryMessage = '',
 }) => {
   const [passwordInput, setPasswordInput] = useState('');
   const [signingIn, setSigningIn] = useState(false);
@@ -94,6 +96,20 @@ export const AdminGateModal: React.FC<AdminGateModalProps> = ({
                 ? 'Masuk Studio Admin (Google Terverifikasi)'
                 : 'Login dengan Akun Google Admin'}
           </button>
+
+          {googleRecoveryMessage && (
+            <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-400/40 space-y-2 text-xs">
+              <p className="text-amber-200 leading-relaxed">{googleRecoveryMessage}</p>
+              <a
+                href={typeof window !== 'undefined' ? window.location.href : '/'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-gold px-3 py-1.5 rounded-lg text-xs font-bold inline-block"
+              >
+                Buka di Tab Baru (Anti Blokir Pop-up) →
+              </a>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
@@ -235,17 +251,17 @@ export const GoogleScriptModal: React.FC<GoogleScriptModalProps> = ({
 
         <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-bold text-amber-300">Password Admin Sistem Aktif:</p>
-            <p className="text-base font-mono font-extrabold text-white mt-0.5">
-              {systemPasswordPlain}
+            <p className="text-xs font-bold text-amber-300">Password Admin Cadangan Aktif (SHA-256):</p>
+            <p className="text-sm sm:text-base font-mono font-bold text-white mt-0.5 tabular-nums">
+              {systemPasswordPlain || 'Tersimpan terenkripsi — klik Buat Password Baru untuk melihat'}
             </p>
           </div>
           <button
             type="button"
             onClick={onRegeneratePassword}
-            className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs whitespace-nowrap"
+            className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs whitespace-nowrap transition"
           >
-            🔄 Buat Password Baru
+            Buat Password Baru
           </button>
         </div>
 

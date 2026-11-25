@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ArrowRight, LogOut, ShieldCheck, Upload, X } from 'lucide-react';
 import {
   normalizeParticipantUsername,
   validatePasswordOnlyRegistration,
@@ -43,7 +44,30 @@ interface ParticipantAuthModalProps {
   onOpenSkdAnalysis?: () => void;
   onLogout: () => Promise<void>;
   onClose: () => void;
+  googleRecoveryMessage?: string;
+  onClearGoogleRecovery?: () => void;
 }
+
+const GoogleGIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      fill="#EA4335"
+      d="M12 5c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.09 14.97 0 12 0 7.39 0 3.41 2.65 1.49 6.51l3.66 2.84C6.01 6.77 8.77 5 12 5z"
+    />
+    <path
+      fill="#4285F4"
+      d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.7 2.87c2.16-1.99 3.72-4.92 3.72-8.69z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M5.15 14.65c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.63H1.49C.54 9.52 0 11.65 0 13.9c0 2.25.54 4.38 1.49 6.27l3.66-2.84z"
+    />
+    <path
+      fill="#34A853"
+      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.7-2.87c-1.08.72-2.45 1.16-4.23 1.16-3.23 0-5.99-2.18-6.97-5.13l-3.66 2.84C3.41 21.35 7.39 24 12 24z"
+    />
+  </svg>
+);
 
 export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
   open,
@@ -64,12 +88,14 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
   onOpenSkdAnalysis,
   onLogout,
   onClose,
+  googleRecoveryMessage = '',
+  onClearGoogleRecovery,
 }) => {
   const [tab, setTab] = useState<'register' | 'login' | 'profile'>(
     userEmail ? 'profile' : initialMode === 'profile' ? 'register' : initialMode
   );
 
-  // Non-Google Registration state
+  // Registration state (Username + Password)
   const [regName, setRegName] = useState(playerName || '');
   const [regUsername, setRegUsername] = useState('');
   const [regUsernameEdited, setRegUsernameEdited] = useState(false);
@@ -248,14 +274,14 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="participant-auth-title"
-      className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-[#050b18]/88 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
     >
-      <div className="hero-glow-card holo-top-beam w-full max-w-lg rounded-3xl p-6 sm:p-7 space-y-5 border border-sky-400/35 my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
+      <div className="hero-glow-card holo-top-beam w-full max-w-lg rounded-3xl p-6 sm:p-7 space-y-5 my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 border-b border-sky-400/20 pb-4">
+        <div className="flex items-start justify-between gap-3 border-b border-sky-400/15 pb-4">
           <div>
-            <p className="text-xs font-bold text-sky-300">
-              Akun Peserta Tanpa Google · Database Peserta
+            <p className="text-xs font-semibold text-sky-300">
+              Akun Peserta · Google &amp; Non-Google Database
             </p>
             <h2
               id="participant-auth-title"
@@ -264,7 +290,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
               {userEmail
                 ? 'Profil & Database Peserta'
                 : tab === 'register'
-                  ? 'Buat Akun Peserta Baru'
+                  ? 'Daftar Akun Peserta'
                   : 'Masuk Akun Peserta'}
             </h2>
           </div>
@@ -273,9 +299,9 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
             id="btn-close-participant-auth"
             onClick={onClose}
             aria-label="Tutup modal akun peserta"
-            className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold text-sm shrink-0"
+            className="w-9 h-9 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-400/20 text-sky-100 flex items-center justify-center shrink-0 transition"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -291,10 +317,84 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
           </div>
         )}
 
-        {/* Tabs when signed out */}
+        {/* Signed out: Primary Google Auth + Nama/Kata Sandi Tabs */}
         {!userEmail ? (
           <>
-            <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-sky-400/20">
+            {googleRecoveryMessage && (
+              <div
+                id="google-popup-recovery-panel"
+                className="p-4 rounded-2xl bg-amber-500/12 border border-amber-400/45 space-y-3"
+              >
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-amber-300">
+                    Pop-up Login Google Dibatasi Browser
+                  </p>
+                  <p className="text-xs text-slate-200 leading-relaxed">
+                    {googleRecoveryMessage}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={typeof window !== 'undefined' ? window.location.href : '/'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    id="link-open-fulltab-login"
+                    className="btn-gold px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5"
+                  >
+                    <span>Buka di Tab Baru (Anti Blokir)</span>
+                    <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTab('register');
+                      onClearGoogleRecovery?.();
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-100 text-xs font-bold transition"
+                  >
+                    Daftar Tanpa Pop-up
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {onGoogleLogin && (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  id="btn-auth-google-signin"
+                  disabled={busy}
+                  onClick={async () => {
+                    setErrorMsg('');
+                    onClearGoogleRecovery?.();
+                    setBusy(true);
+                    try {
+                      await onGoogleLogin();
+                    } catch {
+                      setErrorMsg('Login / Daftar Google dibatalkan.');
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  className="w-full py-3 px-4 rounded-2xl bg-white hover:bg-sky-50 text-[#0b1936] border border-sky-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-sm transition disabled:opacity-60"
+                >
+                  <GoogleGIcon className="w-4 h-4 shrink-0" />
+                  <span>
+                    {tab === 'register'
+                      ? 'Daftar Cepat dengan Akun Google'
+                      : 'Masuk Cepat dengan Akun Google'}
+                  </span>
+                </button>
+
+                <div className="flex items-center gap-3 text-[11px] font-medium text-slate-400">
+                  <div className="h-px flex-1 bg-sky-400/15" />
+                  <span>atau gunakan Nama &amp; Kata Sandi (Tanpa Pop-up)</span>
+                  <div className="h-px flex-1 bg-sky-400/15" />
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-[#071124]/85 border border-sky-400/20">
               <button
                 type="button"
                 id="tab-auth-register"
@@ -304,8 +404,8 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                 }}
                 className={`py-2.5 rounded-xl text-xs font-bold transition ${
                   tab === 'register'
-                    ? 'btn-gold text-slate-950'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    ? 'btn-gold'
+                    : 'text-slate-300 hover:text-white hover:bg-sky-500/10'
                 }`}
               >
                 Daftar (Nama &amp; Sandi)
@@ -319,8 +419,8 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                 }}
                 className={`py-2.5 rounded-xl text-xs font-bold transition ${
                   tab === 'login'
-                    ? 'btn-gold text-slate-950'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    ? 'btn-gold'
+                    : 'text-slate-300 hover:text-white hover:bg-sky-500/10'
                 }`}
               >
                 Masuk Akun
@@ -330,8 +430,8 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
             {tab === 'register' ? (
               <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
                 {/* Optional Profile Photo Upload */}
-                <div className="flex items-center gap-4 p-3 rounded-2xl bg-slate-900/80 border border-sky-400/20">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-sky-400/35 overflow-hidden flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-4 p-3 rounded-2xl bg-[#09162e]/85 border border-sky-400/20">
+                  <div className="w-12 h-12 rounded-2xl bg-[#071124] border border-sky-400/25 overflow-hidden flex items-center justify-center shrink-0">
                     {regPhotoDataUrl ? (
                       <img
                         src={regPhotoDataUrl}
@@ -339,17 +439,18 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-xs font-bold text-slate-400">Foto</span>
+                      <span className="text-[11px] font-semibold text-sky-300/70">Foto</span>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <p className="text-xs font-bold text-slate-200">Foto Profil Peserta (Opsional)</p>
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <p className="text-xs font-bold text-sky-100">Foto Profil Peserta (Opsional)</p>
                     <p className="text-[11px] text-slate-400">
-                      Bisa diunggah sekarang atau diubah Admin di Database Peserta.
+                      Unggah foto sekarang atau kelola via Database Peserta.
                     </p>
                   </div>
-                  <label className="cursor-pointer px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-100 text-xs font-bold whitespace-nowrap transition">
-                    Pilih Foto
+                  <label className="cursor-pointer px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/35 text-sky-100 text-xs font-semibold whitespace-nowrap transition inline-flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Pilih Foto</span>
                     <input
                       id="auth-reg-photo"
                       type="file"
@@ -364,7 +465,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                   <div>
                     <label
                       htmlFor="auth-reg-name"
-                      className="block text-[11px] font-bold text-slate-200 mb-1"
+                      className="block text-[11px] font-semibold text-sky-100/90 mb-1"
                     >
                       Nama Lengkap *
                     </label>
@@ -382,13 +483,13 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                         }
                       }}
                       placeholder="Contoh: Aisyah Putri"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                     />
                   </div>
                   <div>
                     <label
                       htmlFor="auth-reg-username"
-                      className="block text-[11px] font-bold text-slate-200 mb-1"
+                      className="block text-[11px] font-semibold text-sky-100/90 mb-1"
                     >
                       Username Login *
                     </label>
@@ -403,7 +504,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                         setRegUsername(normalizeParticipantUsername(e.target.value));
                       }}
                       placeholder="aisyah.putri"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-sky-200 font-mono"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-sky-200 font-mono"
                     />
                   </div>
                 </div>
@@ -412,7 +513,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                   <div>
                     <label
                       htmlFor="auth-reg-school"
-                      className="block text-[11px] font-bold text-slate-200 mb-1"
+                      className="block text-[11px] font-semibold text-sky-100/90 mb-1"
                     >
                       Asal Sekolah / Instansi
                     </label>
@@ -423,13 +524,13 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                       value={regSchool}
                       onChange={(e) => setRegSchool(e.target.value)}
                       placeholder="Contoh: MAN IC / SMAN 1"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                     />
                   </div>
                   <div>
                     <label
                       htmlFor="auth-reg-phone"
-                      className="block text-[11px] font-bold text-slate-200 mb-1"
+                      className="block text-[11px] font-semibold text-sky-100/90 mb-1"
                     >
                       No. WhatsApp (Opsional)
                     </label>
@@ -440,7 +541,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
                       placeholder="0812xxxxxxxx"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                     />
                   </div>
                 </div>
@@ -449,7 +550,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                   <div>
                     <label
                       htmlFor="auth-reg-track"
-                      className="block text-[11px] font-bold text-slate-200 mb-1"
+                      className="block text-[11px] font-semibold text-sky-100/90 mb-1"
                     >
                       Jalur Persiapan Utama
                     </label>
@@ -457,7 +558,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                       id="auth-reg-track"
                       value={regTrack}
                       onChange={(e) => setRegTrack(e.target.value as ParticipantTargetTrack)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                     >
                       <option value="utbk">UTBK-SNBT (PTN se-Indonesia)</option>
                       <option value="kedinasan">Sekolah Kedinasan (SKD)</option>
@@ -467,7 +568,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                   <div>
                     <label
                       htmlFor="auth-reg-target"
-                      className="block text-[11px] font-bold text-slate-200 mb-1"
+                      className="block text-[11px] font-semibold text-sky-100/90 mb-1"
                     >
                       Target Kampus / Kedinasan
                     </label>
@@ -478,7 +579,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                       value={regTargetCampus}
                       onChange={(e) => setRegTargetCampus(e.target.value)}
                       placeholder="Misal: PKN STAN / Kedokteran UI"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                     />
                   </div>
                 </div>
@@ -487,7 +588,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                   <div>
                     <label
                       htmlFor="auth-reg-password"
-                      className="block text-[11px] font-bold text-slate-200 mb-1"
+                      className="block text-[11px] font-semibold text-sky-100/90 mb-1"
                     >
                       Buat Kata Sandi (Min. 4) *
                     </label>
@@ -499,13 +600,13 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                     />
                   </div>
                   <div>
                     <label
                       htmlFor="auth-reg-confirm"
-                      className="block text-[11px] font-bold text-slate-200 mb-1"
+                      className="block text-[11px] font-semibold text-sky-100/90 mb-1"
                     >
                       Ulangi Kata Sandi *
                     </label>
@@ -517,7 +618,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                       value={regConfirm}
                       onChange={(e) => setRegConfirm(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                     />
                   </div>
                 </div>
@@ -526,9 +627,10 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                   type="submit"
                   id="btn-auth-submit-register"
                   disabled={busy}
-                  className="btn-gold w-full py-3.5 rounded-2xl font-extrabold text-xs sm:text-sm disabled:opacity-60"
+                  className="btn-gold w-full py-3.5 rounded-2xl font-bold text-xs sm:text-sm disabled:opacity-60 inline-flex items-center justify-center gap-2"
                 >
-                  {busy ? 'Mendaftarkan Akun...' : 'Buat Akun & Simpan ke Database Peserta'}
+                  <span>{busy ? 'Mendaftarkan Akun...' : 'Buat Akun & Simpan ke Database'}</span>
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </button>
               </form>
             ) : (
@@ -536,7 +638,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                 <div>
                   <label
                     htmlFor="auth-login-identifier"
-                    className="block text-[11px] font-bold text-slate-200 mb-1"
+                    className="block text-[11px] font-semibold text-sky-100/90 mb-1"
                   >
                     Nama Lengkap atau Username
                   </label>
@@ -547,13 +649,13 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                     value={loginIdentifier}
                     onChange={(e) => setLoginIdentifier(e.target.value)}
                     placeholder="Contoh: Aisyah Putri atau aisyah.putri"
-                    className="w-full px-3.5 py-3 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                    className="w-full px-3.5 py-3 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                   />
                 </div>
                 <div>
                   <label
                     htmlFor="auth-login-password"
-                    className="block text-[11px] font-bold text-slate-200 mb-1"
+                    className="block text-[11px] font-semibold text-sky-100/90 mb-1"
                   >
                     Kata Sandi
                   </label>
@@ -565,51 +667,27 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-3.5 py-3 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                    className="w-full px-3.5 py-3 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                   />
                 </div>
                 <button
                   type="submit"
                   id="btn-auth-submit-login"
                   disabled={busy}
-                  className="btn-gold w-full py-3.5 rounded-2xl font-extrabold text-xs sm:text-sm disabled:opacity-60"
+                  className="btn-gold w-full py-3.5 rounded-2xl font-bold text-xs sm:text-sm disabled:opacity-60 inline-flex items-center justify-center gap-2"
                 >
-                  {busy ? 'Memeriksa Akun...' : 'Masuk dengan Nama & Kata Sandi'}
+                  <span>{busy ? 'Memeriksa Akun...' : 'Masuk dengan Nama & Kata Sandi'}</span>
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </button>
               </form>
-            )}
-
-            {onGoogleLogin && (
-              <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
-                <span className="text-[11px] text-slate-400">Opsional jika ingin pakai Google:</span>
-                <button
-                  type="button"
-                  id="btn-auth-google-signin"
-                  disabled={busy}
-                  onClick={async () => {
-                    setErrorMsg('');
-                    setBusy(true);
-                    try {
-                      await onGoogleLogin();
-                    } catch {
-                      setErrorMsg('Login Google dibatalkan.');
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-semibold text-[11px] transition disabled:opacity-60"
-                >
-                  Masuk via Google
-                </button>
-              </div>
             )}
           </>
         ) : (
           /* Signed-in Profile & Database Peserta Editor */
           <form onSubmit={handleProfileSave} className="space-y-4">
-            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-400/30 flex items-center justify-between gap-3 text-xs">
+            <div className="p-3.5 rounded-2xl bg-[#09162e]/85 border border-sky-400/20 flex items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-emerald-400/40 overflow-hidden flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-[#0d1f42] border border-sky-400/25 overflow-hidden flex items-center justify-center shrink-0">
                   {activePhotoPreview ? (
                     <img
                       src={activePhotoPreview}
@@ -617,20 +695,23 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-sm font-bold text-emerald-300">
+                    <span className="text-sm font-bold text-sky-100">
                       {(profName || playerName || 'P').slice(0, 1).toUpperCase()}
                     </span>
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="font-bold text-emerald-300">Tersimpan di Database Peserta</p>
-                  <p className="text-slate-300 truncate mt-0.5">
+                  <p className="font-bold text-white inline-flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+                    <span>Tersimpan di Database Peserta</span>
+                  </p>
+                  <p className="text-sky-300 truncate mt-0.5">
                     {username ? `@${username}` : userEmail}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <label className="cursor-pointer px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-100 font-bold text-xs">
+                <label className="cursor-pointer px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/35 text-sky-100 font-semibold text-xs">
                   Ganti Foto
                   <input
                     id="prof-photo-upload"
@@ -646,16 +727,17 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                     await onLogout();
                     onClose();
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 font-bold text-xs shrink-0"
+                  className="px-3 py-1.5 rounded-xl bg-[#071124]/60 hover:bg-rose-500/20 border border-sky-400/20 hover:border-rose-400/35 text-slate-300 hover:text-rose-200 font-semibold text-xs shrink-0 inline-flex items-center gap-1"
                 >
-                  Keluar
+                  <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Keluar</span>
                 </button>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label htmlFor="prof-name" className="block text-[11px] font-bold text-slate-200 mb-1">
+                <label htmlFor="prof-name" className="block text-[11px] font-semibold text-sky-100/90 mb-1">
                   Nama Lengkap Peserta *
                 </label>
                 <input
@@ -665,11 +747,11 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                   maxLength={60}
                   value={profName}
                   onChange={(e) => setProfName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                 />
               </div>
               <div>
-                <label htmlFor="prof-school" className="block text-[11px] font-bold text-slate-200 mb-1">
+                <label htmlFor="prof-school" className="block text-[11px] font-semibold text-sky-100/90 mb-1">
                   Asal Sekolah / Instansi
                 </label>
                 <input
@@ -679,14 +761,14 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                   value={profSchool}
                   onChange={(e) => setProfSchool(e.target.value)}
                   placeholder="Contoh: MAN IC Jambi"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label htmlFor="prof-phone" className="block text-[11px] font-bold text-slate-200 mb-1">
+                <label htmlFor="prof-phone" className="block text-[11px] font-semibold text-sky-100/90 mb-1">
                   No. WhatsApp / HP
                 </label>
                 <input
@@ -696,18 +778,18 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                   value={profPhone}
                   onChange={(e) => setProfPhone(e.target.value)}
                   placeholder="0812xxxxxxxx"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                 />
               </div>
               <div>
-                <label htmlFor="prof-track" className="block text-[11px] font-bold text-slate-200 mb-1">
+                <label htmlFor="prof-track" className="block text-[11px] font-semibold text-sky-100/90 mb-1">
                   Jalur Seleksi Target
                 </label>
                 <select
                   id="prof-track"
                   value={profTrack}
                   onChange={(e) => setProfTrack(e.target.value as ParticipantTargetTrack)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
                 >
                   <option value="utbk">UTBK-SNBT (PTN se-Indonesia)</option>
                   <option value="kedinasan">Sekolah Kedinasan (SKD)</option>
@@ -719,7 +801,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
             <div>
               <label
                 htmlFor="prof-target-campus"
-                className="block text-[11px] font-bold text-slate-200 mb-1"
+                className="block text-[11px] font-semibold text-sky-100/90 mb-1"
               >
                 Target Universitas / Sekolah Kedinasan Impian
               </label>
@@ -730,14 +812,13 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                 value={profTargetCampus}
                 onChange={(e) => setProfTargetCampus(e.target.value)}
                 placeholder="Misal: PKN STAN / Polstat STIS / Teknik Informatika ITB"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-sky-400/25 focus:border-sky-400 outline-none text-xs sm:text-sm text-white"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 focus:border-sky-400/70 outline-none text-xs sm:text-sm text-white"
               />
             </div>
 
-            {/* Saved SKD Kedinasan Summary Card inside Profile DB */}
-            <div className="p-4 rounded-2xl bg-purple-950/35 border border-purple-400/30 space-y-2">
+            <div className="p-4 rounded-2xl bg-[#09162e]/80 border border-sky-400/15 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-bold text-purple-200">
+                <p className="text-xs font-bold text-sky-100">
                   Skor SKD Kedinasan Tersimpan di Database
                 </p>
                 {onOpenSkdAnalysis && (
@@ -747,23 +828,24 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
                       onClose();
                       onOpenSkdAnalysis();
                     }}
-                    className="text-[11px] font-bold text-teal-300 hover:underline"
+                    className="text-[11px] font-bold text-sky-300 hover:text-amber-300 hover:underline inline-flex items-center gap-1"
                   >
-                    Analisis Skor SKD →
+                    <span>Analisis Skor SKD</span>
+                    <ArrowRight className="w-3 h-3" />
                   </button>
                 )}
               </div>
               {savedSkdSummary ? (
                 <div className="text-xs text-slate-200 space-y-1 tabular-nums">
                   <p>
-                    Total <strong className="text-amber-300">{savedSkdSummary.total}/550</strong> (TWK{' '}
+                    Total <strong className="text-white">{savedSkdSummary.total}/550</strong> (TWK{' '}
                     {savedSkdSummary.twk} · TIU {savedSkdSummary.tiu} · TKP {savedSkdSummary.tkp}){' '}
                     <span className={savedSkdSummary.passedAllPg ? 'text-emerald-300' : 'text-rose-300'}>
                       · {savedSkdSummary.passedAllPg ? 'Lolos PG BKN' : 'Belum Lolos PG'}
                     </span>
                   </p>
                   {savedSkdSummary.recommendedSchool && (
-                    <p className="text-[11px] text-purple-200">
+                    <p className="text-[11px] text-sky-200">
                       Kecocokan Utama: <strong>{savedSkdSummary.recommendedSchool}</strong>
                     </p>
                   )}
@@ -779,7 +861,7 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
               type="submit"
               id="btn-save-participant-profile"
               disabled={busy}
-              className="btn-gold w-full py-3.5 rounded-2xl font-extrabold text-xs sm:text-sm disabled:opacity-60"
+              className="btn-gold w-full py-3.5 rounded-2xl font-bold text-xs sm:text-sm disabled:opacity-60"
             >
               {busy ? 'Menyimpan ke Database...' : 'Simpan Perubahan ke Database Peserta'}
             </button>

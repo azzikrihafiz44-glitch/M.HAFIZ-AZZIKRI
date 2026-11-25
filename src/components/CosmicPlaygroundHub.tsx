@@ -1,6 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 import {
+  ArrowLeft,
+  ArrowRight,
+  Calculator,
+  CalendarCheck2,
+  Check,
+  Layers,
+  Plus,
+  RotateCw,
+  Shuffle,
+  X,
+  Zap,
+} from 'lucide-react';
+import {
   DEFAULT_FLASHCARDS,
   calculateSkdPassingGrade,
   calculateSpeedMathPoints,
@@ -124,7 +137,6 @@ export const CosmicPlaygroundHub: React.FC = () => {
   );
   const utbkResult = useMemo(() => calculateUtbkAverage(utbkScores), [utbkScores]);
 
-  // Speed Math timer
   useEffect(() => {
     if (!mathRunning) return;
     const timer = window.setInterval(() => {
@@ -141,7 +153,6 @@ export const CosmicPlaygroundHub: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [mathRunning]);
 
-  // Save best score & celebrate on new high score
   useEffect(() => {
     if (mathFinished && mathScore > bestScore) {
       setBestScore(mathScore);
@@ -186,7 +197,6 @@ export const CosmicPlaygroundHub: React.FC = () => {
     setMathQuestion(generateSpeedMathQuestion(difficulty));
   };
 
-  // Flashcards derived list
   const allCards = useMemo(() => [...customCards, ...DEFAULT_FLASHCARDS], [customCards]);
   const filteredCards = useMemo(() => {
     if (subjectFilter === 'Semua') return allCards;
@@ -239,7 +249,6 @@ export const CosmicPlaygroundHub: React.FC = () => {
     setIsFlipped(false);
   };
 
-  // Exam Targets & Quick Notes handlers
   const handleAddExamTarget = (e: React.FormEvent) => {
     e.preventDefault();
     const title = newTargetTitle.trim();
@@ -306,10 +315,10 @@ export const CosmicPlaygroundHub: React.FC = () => {
   };
 
   return (
-    <section id="cosmic-playground-hub" className="pt-4 space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-sky-400/20 pb-4">
+    <section id="cosmic-playground-hub" className="pt-2 space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-sky-400/15 pb-4">
         <div>
-          <p className="text-xs font-semibold text-sky-300 tracking-wide">
+          <p className="text-xs font-semibold text-sky-300 tracking-wide uppercase">
             Zona Interaktif &amp; Utilitas Belajar Kosmik
           </p>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mt-1">
@@ -321,59 +330,63 @@ export const CosmicPlaygroundHub: React.FC = () => {
         <div
           role="tablist"
           aria-label="Fitur Belajar Interaktif"
-          className="inline-flex flex-wrap gap-1.5 p-1 rounded-2xl bg-slate-900/85 border border-sky-400/25"
+          className="inline-flex flex-wrap gap-1 p-1 rounded-2xl bg-[#071124]/90 border border-sky-400/20"
         >
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === 'speedmath'}
             onClick={() => setActiveTab('speedmath')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap inline-flex items-center gap-1.5 ${
               activeTab === 'speedmath'
-                ? 'bg-sky-500/25 text-sky-100 border border-sky-400/50'
-                : 'text-slate-400 hover:text-white border border-transparent'
+                ? 'bg-sky-500 text-white font-bold shadow-[0_4px_14px_rgba(14,165,233,0.3)]'
+                : 'text-slate-300 hover:text-sky-200'
             }`}
           >
-            ⚡ Kilat Hitung
+            <Zap className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Kilat Hitung</span>
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === 'flashcards'}
             onClick={() => setActiveTab('flashcards')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap inline-flex items-center gap-1.5 ${
               activeTab === 'flashcards'
-                ? 'bg-sky-500/25 text-sky-100 border border-sky-400/50'
-                : 'text-slate-400 hover:text-white border border-transparent'
+                ? 'bg-sky-500 text-white font-bold shadow-[0_4px_14px_rgba(14,165,233,0.3)]'
+                : 'text-slate-300 hover:text-sky-200'
             }`}
           >
-            🃏 Flashcard 3D
+            <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Flashcard 3D</span>
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === 'planner'}
             onClick={() => setActiveTab('planner')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap inline-flex items-center gap-1.5 ${
               activeTab === 'planner'
-                ? 'bg-sky-500/25 text-sky-100 border border-sky-400/50'
-                : 'text-slate-400 hover:text-white border border-transparent'
+                ? 'bg-sky-500 text-white font-bold shadow-[0_4px_14px_rgba(14,165,233,0.3)]'
+                : 'text-slate-300 hover:text-sky-200'
             }`}
           >
-            🎯 Target &amp; Catatan
+            <CalendarCheck2 className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Target &amp; Catatan</span>
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === 'calculator'}
             onClick={() => setActiveTab('calculator')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap inline-flex items-center gap-1.5 ${
               activeTab === 'calculator'
-                ? 'bg-purple-500/30 text-purple-100 border border-purple-400/55'
-                : 'text-slate-400 hover:text-white border border-transparent'
+                ? 'bg-sky-500 text-white font-bold shadow-[0_4px_14px_rgba(14,165,233,0.3)]'
+                : 'text-slate-300 hover:text-sky-200'
             }`}
           >
-            📊 Kalkulator Skor
+            <Calculator className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Kalkulator Skor</span>
           </button>
         </div>
       </div>
@@ -383,14 +396,12 @@ export const CosmicPlaygroundHub: React.FC = () => {
         <div className="hero-glow-card holo-top-beam rounded-3xl p-6 sm:p-8 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="font-display text-xl font-bold text-white">
-                Kilat Hitung 30 Detik
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h3 className="font-display text-xl font-bold text-white">Kilat Hitung 30 Detik</h3>
+              <p className="text-xs text-slate-300 mt-0.5">
                 Pemanasan otak sebelum kuis — jaga combo beruntun untuk pengali skor hingga 4x!
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 bg-[#071124]/90 p-1 rounded-xl border border-sky-400/20">
               {(
                 [
                   { id: 'santai', label: 'Santai' },
@@ -407,10 +418,10 @@ export const CosmicPlaygroundHub: React.FC = () => {
                       setMathQuestion(generateSpeedMathQuestion(item.id));
                     }
                   }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
                     difficulty === item.id
-                      ? 'bg-sky-500/25 border-sky-400/55 text-sky-100'
-                      : 'bg-slate-900/75 border-sky-400/15 text-slate-400 hover:text-white'
+                      ? 'bg-amber-400 border-amber-300 text-[#071124] font-bold'
+                      : 'border-transparent text-slate-300 hover:text-sky-200'
                   }`}
                 >
                   {item.label}
@@ -421,52 +432,52 @@ export const CosmicPlaygroundHub: React.FC = () => {
 
           {/* Live HUD */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="px-4 py-3 rounded-2xl bg-slate-900/80 border border-sky-400/20">
-              <p className="text-[11px] text-slate-400">Waktu</p>
+            <div className="px-4 py-3 rounded-2xl bg-[#09162e]/85 border border-sky-400/20">
+              <p className="text-[11px] text-sky-300">Waktu</p>
               <p
                 data-testid="speedmath-timer"
-                className={`font-hud text-xl font-bold tabular-nums ${
+                className={`font-hud text-xl font-bold tabular-nums mt-0.5 ${
                   mathTimeLeft <= 8 && mathRunning ? 'text-rose-400' : 'text-white'
                 }`}
               >
                 {mathTimeLeft} dtk
               </p>
             </div>
-            <div className="px-4 py-3 rounded-2xl bg-slate-900/80 border border-sky-400/20">
-              <p className="text-[11px] text-slate-400">Skor</p>
+            <div className="px-4 py-3 rounded-2xl bg-[#09162e]/85 border border-sky-400/20">
+              <p className="text-[11px] text-sky-300">Skor</p>
               <p
                 data-testid="speedmath-score"
-                className="font-hud text-xl font-bold text-sky-300 tabular-nums"
+                className="font-hud text-xl font-bold text-white tabular-nums mt-0.5"
               >
                 {mathScore}
               </p>
             </div>
-            <div className="px-4 py-3 rounded-2xl bg-slate-900/80 border border-sky-400/20">
-              <p className="text-[11px] text-slate-400">Combo Streak</p>
-              <p className="font-hud text-xl font-bold text-amber-300 tabular-nums">
+            <div className="px-4 py-3 rounded-2xl bg-[#09162e]/85 border border-amber-400/20">
+              <p className="text-[11px] text-amber-300">Combo Streak</p>
+              <p className="font-hud text-xl font-bold text-amber-200 tabular-nums mt-0.5">
                 {mathStreak}x
               </p>
             </div>
-            <div className="px-4 py-3 rounded-2xl bg-slate-900/80 border border-sky-400/20">
-              <p className="text-[11px] text-slate-400">Rekor Terbaik</p>
-              <p className="font-hud text-xl font-bold text-emerald-300 tabular-nums">
+            <div className="px-4 py-3 rounded-2xl bg-[#09162e]/85 border border-emerald-400/20">
+              <p className="text-[11px] text-emerald-300">Rekor Terbaik</p>
+              <p className="font-hud text-xl font-bold text-emerald-300 tabular-nums mt-0.5">
                 {bestScore}
               </p>
             </div>
           </div>
 
           {!mathRunning ? (
-            <div className="rounded-2xl bg-slate-900/75 border border-sky-400/20 p-6 sm:p-8 text-center space-y-4">
+            <div className="rounded-2xl bg-[#09162e]/75 border border-sky-400/15 p-6 sm:p-8 text-center space-y-4">
               {mathFinished ? (
                 <>
                   <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300">
-                    Waktu Habis!
+                    Waktu Habis
                   </p>
                   <p className="font-display text-3xl font-bold text-white tabular-nums">
                     Skor Akhir: {mathScore} Poin
                   </p>
                   <p className="text-xs text-slate-300">
-                    Kamu menjawab benar <strong>{mathCorrectCount}</strong> soal dalam 30 detik.
+                    Kamu menjawab benar <strong className="text-amber-300">{mathCorrectCount}</strong> soal dalam 30 detik.
                     {mathScore >= bestScore && mathScore > 0 ? ' Rekor pribadi baru!' : ''}
                   </p>
                 </>
@@ -485,22 +496,22 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 type="button"
                 id="btn-start-speedmath"
                 onClick={() => startSpeedMath(difficulty)}
-                className="btn-gold px-7 py-3 rounded-xl text-sm font-extrabold"
+                className="btn-gold px-7 py-3 rounded-xl text-sm font-bold"
               >
                 {mathFinished ? 'Main Lagi' : 'Mulai Kilat Hitung'}
               </button>
             </div>
           ) : (
-            <div className="rounded-2xl bg-slate-900/80 border border-sky-400/30 p-6 space-y-5">
+            <div className="rounded-2xl bg-[#09162e]/85 border border-sky-400/30 p-6 space-y-5">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-sky-300 font-semibold">{mathQuestion.hint}</span>
+                <span className="text-sky-200 font-semibold">{mathQuestion.hint}</span>
                 {mathFeedback && (
                   <span
                     className={`font-bold ${
                       mathFeedback === 'correct' ? 'text-emerald-300' : 'text-rose-300'
                     }`}
                   >
-                    {mathFeedback === 'correct' ? '✓ Tepat!' : '✕ Kurang tepat, lanjut!'}
+                    {mathFeedback === 'correct' ? 'Tepat!' : 'Kurang tepat, lanjut!'}
                   </span>
                 )}
               </div>
@@ -519,7 +530,7 @@ export const CosmicPlaygroundHub: React.FC = () => {
                     type="button"
                     data-testid={`speedmath-choice-${idx}`}
                     onClick={() => handleSpeedMathAnswer(choice)}
-                    className="py-3.5 px-4 rounded-2xl bg-slate-800/90 hover:bg-sky-500/25 border border-sky-400/30 hover:border-sky-300 font-hud text-lg font-bold text-white transition tabular-nums"
+                    className="py-3.5 px-4 rounded-2xl bg-[#0d2042] hover:bg-sky-500 hover:border-sky-300 hover:text-white border border-sky-400/25 font-hud text-lg font-bold text-white transition tabular-nums"
                   >
                     {choice}
                   </button>
@@ -538,7 +549,7 @@ export const CosmicPlaygroundHub: React.FC = () => {
               <h3 className="font-display text-xl font-bold text-white">
                 Flashcard 3D Rumus &amp; Konsep Inti
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-300 mt-0.5 tabular-nums">
                 Klik kartu untuk membalik 3D · Penguasaan: {masteredCount}/{allCards.length} kartu (
                 {masteryPercent}%)
               </p>
@@ -546,13 +557,22 @@ export const CosmicPlaygroundHub: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowAddCard((v) => !v)}
-              className="px-3.5 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-100 text-xs font-bold transition whitespace-nowrap"
+              className="px-3.5 py-2 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/35 text-sky-100 text-xs font-semibold transition whitespace-nowrap inline-flex items-center gap-1.5"
             >
-              {showAddCard ? 'Tutup Form' : '+ Tambah Kartu Sendiri'}
+              {showAddCard ? (
+                <>
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Tutup Form</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
+                  <span>Tambah Kartu</span>
+                </>
+              )}
             </button>
           </div>
 
-          {/* Subject Filter */}
           <div className="flex flex-wrap gap-1.5">
             {SUBJECT_FILTERS.map((subj) => (
               <button
@@ -565,8 +585,8 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${
                   subjectFilter === subj
-                    ? 'bg-sky-500/25 border-sky-400/55 text-sky-100'
-                    : 'bg-slate-900/75 border-sky-400/15 text-slate-400 hover:text-white'
+                    ? 'bg-sky-500 border-sky-300 text-white font-bold'
+                    : 'bg-[#09162e]/85 border-sky-400/20 text-slate-300 hover:text-sky-200'
                 }`}
               >
                 {subj}
@@ -577,7 +597,7 @@ export const CosmicPlaygroundHub: React.FC = () => {
           {showAddCard && (
             <form
               onSubmit={handleAddCustomCard}
-              className="p-4 rounded-2xl bg-slate-900/85 border border-sky-400/30 grid grid-cols-1 sm:grid-cols-3 gap-3"
+              className="p-4 rounded-2xl bg-[#09162e]/85 border border-sky-400/20 grid grid-cols-1 sm:grid-cols-3 gap-3"
             >
               <input
                 type="text"
@@ -586,7 +606,7 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 placeholder="Pertanyaan / Konsep depan..."
                 aria-label="Pertanyaan kartu flashcard"
                 required
-                className="px-3.5 py-2.5 rounded-xl bg-slate-950/90 border border-sky-400/25 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400"
+                className="px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-400"
               />
               <input
                 type="text"
@@ -595,7 +615,7 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 placeholder="Jawaban / Penjelasan belakang..."
                 aria-label="Jawaban kartu flashcard"
                 required
-                className="px-3.5 py-2.5 rounded-xl bg-slate-950/90 border border-sky-400/25 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400"
+                className="px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-400"
               />
               <div className="flex gap-2">
                 <input
@@ -604,11 +624,11 @@ export const CosmicPlaygroundHub: React.FC = () => {
                   onChange={(e) => setNewCardFormula(e.target.value)}
                   placeholder="Rumus (opsional)"
                   aria-label="Rumus flashcard opsional"
-                  className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-slate-950/90 border border-sky-400/25 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400"
+                  className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-400"
                 />
                 <button
                   type="submit"
-                  className="btn-gold px-4 py-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap"
+                  className="btn-gold px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap"
                 >
                   Simpan
                 </button>
@@ -618,7 +638,6 @@ export const CosmicPlaygroundHub: React.FC = () => {
 
           {activeCard ? (
             <div className="space-y-4">
-              {/* 3D Flip Card */}
               <div className="flashcard-perspective w-full">
                 <button
                   type="button"
@@ -632,43 +651,42 @@ export const CosmicPlaygroundHub: React.FC = () => {
                       isFlipped ? 'is-flipped' : ''
                     }`}
                   >
-                    {/* Front Face */}
-                    <div className="flashcard-face flashcard-front absolute inset-0 rounded-2xl p-6 sm:p-7 bg-gradient-to-br from-slate-900 via-slate-900/95 to-indigo-950/90 border border-sky-400/35 flex flex-col justify-between">
+                    <div className="flashcard-face flashcard-front absolute inset-0 rounded-2xl p-6 sm:p-7 bg-gradient-to-br from-[#0d2147] via-[#09162e] to-[#071124] border border-sky-400/30 flex flex-col justify-between">
                       <div className="flex items-center justify-between gap-2">
                         <span className="px-2.5 py-1 rounded-lg bg-sky-500/20 border border-sky-400/35 text-[11px] font-bold text-sky-200">
                           {activeCard.subject}
                         </span>
-                        <span className="text-[11px] text-slate-400 tabular-nums">
+                        <span className="text-[11px] text-sky-200/80 tabular-nums">
                           Kartu {safeCardIdx + 1} / {filteredCards.length} · Klik untuk balik
                         </span>
                       </div>
                       <p className="font-display text-lg sm:text-2xl font-bold text-white leading-snug my-4">
                         {activeCard.front}
                       </p>
-                      <p className="text-xs text-sky-300 font-semibold">
-                        ↻ Ketuk kartu untuk melihat rumus &amp; penjelasan
+                      <p className="text-xs text-sky-200/80 font-semibold inline-flex items-center gap-1.5">
+                        <RotateCw className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
+                        <span>Ketuk kartu untuk melihat rumus &amp; penjelasan</span>
                       </p>
                     </div>
 
-                    {/* Back Face */}
-                    <div className="flashcard-face flashcard-back absolute inset-0 rounded-2xl p-6 sm:p-7 bg-gradient-to-br from-indigo-950/95 via-slate-900 to-teal-950/90 border border-teal-400/45 flex flex-col justify-between">
+                    <div className="flashcard-face flashcard-back absolute inset-0 rounded-2xl p-6 sm:p-7 bg-gradient-to-br from-[#082436] via-[#0b2e3c] to-[#0a1d3b] border border-teal-400/35 flex flex-col justify-between">
                       <div className="flex items-center justify-between gap-2">
                         <span className="px-2.5 py-1 rounded-lg bg-teal-500/20 border border-teal-400/35 text-[11px] font-bold text-teal-200">
                           Pembahasan · {activeCard.subject}
                         </span>
-                        <span className="text-[11px] text-slate-400">Klik untuk kembali</span>
+                        <span className="text-[11px] text-teal-200/80">Klik untuk kembali</span>
                       </div>
                       <div className="space-y-3 my-3">
                         {activeCard.formula && (
-                          <div className="px-4 py-2.5 rounded-xl bg-slate-950/80 border border-sky-400/30 font-hud text-sm sm:text-base font-bold text-amber-300 text-center">
+                          <div className="px-4 py-2.5 rounded-xl bg-[#061022]/90 border border-amber-400/30 font-hud text-sm sm:text-base font-bold text-amber-200 text-center">
                             {activeCard.formula}
                           </div>
                         )}
-                        <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                        <p className="text-xs sm:text-sm text-slate-100 leading-relaxed">
                           {activeCard.back}
                         </p>
                       </div>
-                      <p className="text-[11px] text-teal-300 font-semibold">
+                      <p className="text-[11px] text-teal-200/80 font-semibold">
                         Tandai &ldquo;Sudah Hafal&rdquo; di bawah jika kamu menguasai konsep ini
                       </p>
                     </div>
@@ -676,7 +694,6 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 </button>
               </div>
 
-              {/* Card Navigation & Mastery Controls */}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <button
@@ -685,9 +702,10 @@ export const CosmicPlaygroundHub: React.FC = () => {
                       setIsFlipped(false);
                       setCardIndex((i) => (i - 1 + filteredCards.length) % filteredCards.length);
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-slate-800/85 hover:bg-slate-700 border border-sky-400/25 text-xs font-bold text-slate-200 transition"
+                    className="px-3.5 py-2 rounded-xl bg-[#09162e]/85 hover:bg-[#10254a] border border-sky-400/20 text-xs font-semibold text-sky-100 transition inline-flex items-center gap-1.5"
                   >
-                    ← Sebelumnya
+                    <ArrowLeft className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
+                    <span>Sebelumnya</span>
                   </button>
                   <button
                     type="button"
@@ -695,9 +713,10 @@ export const CosmicPlaygroundHub: React.FC = () => {
                       setIsFlipped(false);
                       setCardIndex((i) => (i + 1) % filteredCards.length);
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-slate-800/85 hover:bg-slate-700 border border-sky-400/25 text-xs font-bold text-slate-200 transition"
+                    className="px-3.5 py-2 rounded-xl bg-[#09162e]/85 hover:bg-[#10254a] border border-sky-400/20 text-xs font-semibold text-sky-100 transition inline-flex items-center gap-1.5"
                   >
-                    Berikutnya →
+                    <span>Berikutnya</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
                   </button>
                   <button
                     type="button"
@@ -705,27 +724,33 @@ export const CosmicPlaygroundHub: React.FC = () => {
                       setIsFlipped(false);
                       setCardIndex(Math.floor(Math.random() * filteredCards.length));
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-slate-800/85 hover:bg-slate-700 border border-sky-400/25 text-xs font-semibold text-sky-200 transition"
+                    className="px-3.5 py-2 rounded-xl bg-[#09162e]/85 hover:bg-[#10254a] border border-sky-400/20 text-xs font-semibold text-sky-100 transition inline-flex items-center gap-1.5"
                   >
-                    Acak Kartu
+                    <Shuffle className="w-3.5 h-3.5 text-teal-300" aria-hidden="true" />
+                    <span>Acak</span>
                   </button>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => toggleMastered(activeCard.id)}
-                  className={`px-4 py-2 rounded-xl border text-xs font-bold transition ${
+                  className={`px-4 py-2 rounded-xl border text-xs font-bold transition inline-flex items-center gap-1.5 ${
                     masteredIds.includes(activeCard.id)
-                      ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
-                      : 'bg-sky-500/20 hover:bg-sky-500/35 border-sky-400/40 text-sky-100'
+                      ? 'bg-emerald-500/20 border-emerald-400/45 text-emerald-200'
+                      : 'btn-gold'
                   }`}
                 >
-                  {masteredIds.includes(activeCard.id) ? '✓ Sudah Hafal' : 'Tandai Sudah Hafal'}
+                  {masteredIds.includes(activeCard.id) && (
+                    <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                  )}
+                  <span>
+                    {masteredIds.includes(activeCard.id) ? 'Sudah Hafal' : 'Tandai Sudah Hafal'}
+                  </span>
                 </button>
               </div>
             </div>
           ) : (
-            <div className="p-6 rounded-2xl bg-slate-900/70 border border-sky-400/15 text-center text-xs text-slate-400">
+            <div className="p-6 rounded-2xl bg-[#09162e]/75 border border-sky-400/15 text-center text-xs text-slate-300">
               Belum ada kartu di kategori ini. Tambahkan kartu kustom milikmu di atas!
             </div>
           )}
@@ -735,13 +760,12 @@ export const CosmicPlaygroundHub: React.FC = () => {
       {/* TAB 3: EXAM COUNTDOWN & QUICK STUDY NOTES */}
       {activeTab === 'planner' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Exam Countdowns */}
           <div className="lg:col-span-6 hero-glow-card holo-top-beam rounded-3xl p-6 space-y-4">
             <div>
               <h3 className="font-display text-lg font-bold text-white">
                 Hitung Mundur Target Ujian
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-300 mt-0.5">
                 Pantau sisa hari menuju ujian penting agar persiapan belajarmu selalu terukur.
               </p>
             </div>
@@ -752,23 +776,23 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 return (
                   <div
                     key={target.id}
-                    className="p-3.5 rounded-2xl bg-slate-900/80 border border-sky-400/20 flex items-center justify-between gap-3"
+                    className="p-3.5 rounded-2xl bg-[#09162e]/85 border border-sky-400/15 flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-white truncate">{target.title}</p>
-                      <p className="text-[11px] text-slate-400 tabular-nums">{target.targetDate}</p>
+                      <p className="text-[11px] text-slate-300 tabular-nums">{target.targetDate}</p>
                     </div>
                     <div className="flex items-center gap-2.5 shrink-0">
-                      <span className="px-3 py-1 rounded-xl bg-sky-500/20 border border-sky-400/35 font-hud text-xs font-bold text-sky-200 tabular-nums">
+                      <span className="px-3 py-1 rounded-xl bg-sky-500/15 border border-sky-400/30 font-hud text-xs font-bold text-sky-200 tabular-nums">
                         {rem.isPast ? 'Hari H / Lewat' : `H-${rem.days} (${rem.hours}j)`}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleDeleteExamTarget(target.id)}
                         aria-label={`Hapus target ${target.title}`}
-                        className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-500/25 text-slate-400 hover:text-rose-200 text-xs transition"
+                        className="p-1.5 rounded-lg bg-[#071124]/90 hover:bg-rose-500/20 text-slate-300 hover:text-rose-200 transition"
                       >
-                        ✕
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -784,7 +808,7 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 placeholder="Nama ujian (mis. Ulangan Fisika)"
                 aria-label="Nama target ujian"
                 required
-                className="sm:col-span-6 px-3 py-2 rounded-xl bg-slate-950/90 border border-sky-400/25 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400"
+                className="sm:col-span-6 px-3 py-2 rounded-xl bg-[#071124]/90 border border-sky-400/20 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-400"
               />
               <input
                 type="date"
@@ -792,24 +816,23 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 onChange={(e) => setNewTargetDate(e.target.value)}
                 aria-label="Tanggal target ujian"
                 required
-                className="sm:col-span-4 px-3 py-2 rounded-xl bg-slate-950/90 border border-sky-400/25 text-xs text-white focus:outline-none focus:border-sky-400"
+                className="sm:col-span-4 px-3 py-2 rounded-xl bg-[#071124]/90 border border-sky-400/20 text-xs text-white focus:outline-none focus:border-sky-400"
               />
               <button
                 type="submit"
-                className="sm:col-span-2 btn-gold py-2 px-3 rounded-xl text-xs font-extrabold whitespace-nowrap"
+                className="sm:col-span-2 btn-gold py-2 px-3 rounded-xl text-xs font-bold whitespace-nowrap"
               >
                 + Tambah
               </button>
             </form>
           </div>
 
-          {/* Quick Study Notes */}
           <div className="lg:col-span-6 hero-glow-card holo-top-beam rounded-3xl p-6 space-y-4">
             <div>
               <h3 className="font-display text-lg font-bold text-white">
                 Catatan Cepat &amp; Checklist Belajar
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-300 mt-0.5">
                 Simpan pengingat bab, rumus, atau tugas belajar langsung di browser kamu.
               </p>
             </div>
@@ -821,11 +844,11 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 onChange={(e) => setNoteInput(e.target.value)}
                 placeholder="Tulis catatan belajar baru..."
                 aria-label="Tulis catatan belajar baru"
-                className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950/90 border border-sky-400/25 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400"
+                className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#071124]/90 border border-sky-400/20 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-400"
               />
               <button
                 type="submit"
-                className="btn-gold px-4 py-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap"
+                className="btn-gold px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap"
               >
                 Simpan
               </button>
@@ -833,14 +856,14 @@ export const CosmicPlaygroundHub: React.FC = () => {
 
             <div data-testid="quick-notes-list" className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
               {quickNotes.length === 0 ? (
-                <p className="text-xs text-slate-400 py-4 text-center rounded-2xl bg-slate-900/60 border border-sky-400/15">
+                <p className="text-xs text-slate-300 py-4 text-center rounded-2xl bg-[#09162e]/75 border border-sky-400/15">
                   Belum ada catatan. Tulis target belajarmu di atas!
                 </p>
               ) : (
                 quickNotes.map((note) => (
                   <div
                     key={note.id}
-                    className="px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-sky-400/20 flex items-center justify-between gap-2.5"
+                    className="px-3.5 py-2.5 rounded-xl bg-[#09162e]/85 border border-sky-400/15 flex items-center justify-between gap-2.5"
                   >
                     <button
                       type="button"
@@ -848,17 +871,17 @@ export const CosmicPlaygroundHub: React.FC = () => {
                       className="flex items-center gap-2.5 text-left min-w-0 flex-1"
                     >
                       <span
-                        className={`w-4 h-4 rounded flex items-center justify-center border text-[10px] font-bold shrink-0 ${
+                        className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 ${
                           note.done
-                            ? 'bg-emerald-400 border-emerald-300 text-slate-950'
-                            : 'border-slate-500 text-transparent'
+                            ? 'bg-emerald-400 border-emerald-300 text-[#071124]'
+                            : 'border-sky-400/50 text-transparent'
                         }`}
                       >
-                        ✓
+                        <Check className="w-3 h-3" aria-hidden="true" />
                       </span>
                       <span
                         className={`text-xs truncate ${
-                          note.done ? 'line-through text-slate-500' : 'text-slate-100'
+                          note.done ? 'line-through text-slate-400' : 'text-slate-100'
                         }`}
                       >
                         {note.text}
@@ -868,9 +891,9 @@ export const CosmicPlaygroundHub: React.FC = () => {
                       type="button"
                       onClick={() => handleDeleteNote(note.id)}
                       aria-label={`Hapus catatan ${note.text}`}
-                      className="px-2 py-0.5 rounded-lg text-slate-400 hover:text-rose-300 text-xs transition"
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-300 transition"
                     >
-                      ✕
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))
@@ -883,23 +906,22 @@ export const CosmicPlaygroundHub: React.FC = () => {
       {/* TAB 4: KALKULATOR SKOR SKD KEDINASAN & UTBK-SNBT */}
       {activeTab === 'calculator' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* SKD Kedinasan Passing Grade Calculator */}
           <div className="lg:col-span-6 hero-glow-card holo-top-beam rounded-3xl p-6 space-y-5">
             <div>
-              <p className="text-[11px] font-bold text-purple-300 uppercase tracking-wider">
+              <p className="text-[11px] font-bold text-teal-300 uppercase tracking-wider">
                 Simulasi Passing Grade Kedinasan
               </p>
               <h3 className="font-display text-lg font-bold text-white mt-0.5">
                 Kalkulator SKD Kedinasan (TWK · TIU · TKP)
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-300 mt-0.5">
                 Ambang batas resmi: TWK ≥ 65 · TIU ≥ 80 · TKP ≥ 166 (Maksimal 550)
               </p>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label htmlFor="calc-skd-twk" className="block text-[11px] font-bold text-slate-300 mb-1">
+                <label htmlFor="calc-skd-twk" className="block text-[11px] font-semibold text-sky-200 mb-1">
                   TWK (0–150)
                 </label>
                 <input
@@ -909,14 +931,14 @@ export const CosmicPlaygroundHub: React.FC = () => {
                   max={150}
                   value={skdTwk}
                   onChange={(e) => setSkdTwk(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950/90 border border-purple-400/35 text-sm font-hud font-bold text-white outline-none focus:border-purple-400"
+                  className="w-full px-3 py-2 rounded-xl bg-[#071124]/90 border border-sky-400/20 text-sm font-hud font-bold text-white outline-none focus:border-sky-400"
                 />
                 <p className={`text-[10px] font-bold mt-1 ${skdResult.twkPassed ? 'text-emerald-300' : 'text-rose-300'}`}>
-                  {skdResult.twkPassed ? '✓ Lulus PG (≥65)' : '✕ Belum PG'}
+                  {skdResult.twkPassed ? 'Lulus PG (≥65)' : 'Belum PG'}
                 </p>
               </div>
               <div>
-                <label htmlFor="calc-skd-tiu" className="block text-[11px] font-bold text-slate-300 mb-1">
+                <label htmlFor="calc-skd-tiu" className="block text-[11px] font-semibold text-sky-200 mb-1">
                   TIU (0–175)
                 </label>
                 <input
@@ -926,14 +948,14 @@ export const CosmicPlaygroundHub: React.FC = () => {
                   max={175}
                   value={skdTiu}
                   onChange={(e) => setSkdTiu(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950/90 border border-purple-400/35 text-sm font-hud font-bold text-white outline-none focus:border-purple-400"
+                  className="w-full px-3 py-2 rounded-xl bg-[#071124]/90 border border-sky-400/20 text-sm font-hud font-bold text-white outline-none focus:border-sky-400"
                 />
                 <p className={`text-[10px] font-bold mt-1 ${skdResult.tiuPassed ? 'text-emerald-300' : 'text-rose-300'}`}>
-                  {skdResult.tiuPassed ? '✓ Lulus PG (≥80)' : '✕ Belum PG'}
+                  {skdResult.tiuPassed ? 'Lulus PG (≥80)' : 'Belum PG'}
                 </p>
               </div>
               <div>
-                <label htmlFor="calc-skd-tkp" className="block text-[11px] font-bold text-slate-300 mb-1">
+                <label htmlFor="calc-skd-tkp" className="block text-[11px] font-semibold text-sky-200 mb-1">
                   TKP (0–225)
                 </label>
                 <input
@@ -943,10 +965,10 @@ export const CosmicPlaygroundHub: React.FC = () => {
                   max={225}
                   value={skdTkp}
                   onChange={(e) => setSkdTkp(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950/90 border border-purple-400/35 text-sm font-hud font-bold text-white outline-none focus:border-purple-400"
+                  className="w-full px-3 py-2 rounded-xl bg-[#071124]/90 border border-sky-400/20 text-sm font-hud font-bold text-white outline-none focus:border-sky-400"
                 />
                 <p className={`text-[10px] font-bold mt-1 ${skdResult.tkpPassed ? 'text-emerald-300' : 'text-rose-300'}`}>
-                  {skdResult.tkpPassed ? '✓ Lulus PG (≥166)' : '✕ Belum PG'}
+                  {skdResult.tkpPassed ? 'Lulus PG (≥166)' : 'Belum PG'}
                 </p>
               </div>
             </div>
@@ -955,8 +977,8 @@ export const CosmicPlaygroundHub: React.FC = () => {
               data-testid="skd-calc-result"
               className={`p-4 rounded-2xl border ${
                 skdResult.allPassed
-                  ? 'bg-emerald-500/15 border-emerald-400/45'
-                  : 'bg-rose-500/15 border-rose-400/40'
+                  ? 'bg-emerald-500/15 border-emerald-400/35'
+                  : 'bg-rose-500/15 border-rose-400/35'
               }`}
             >
               <div className="flex items-baseline justify-between gap-2">
@@ -975,7 +997,6 @@ export const CosmicPlaygroundHub: React.FC = () => {
             </div>
           </div>
 
-          {/* UTBK-SNBT Target Score Calculator */}
           <div className="lg:col-span-6 hero-glow-card holo-top-beam rounded-3xl p-6 space-y-5">
             <div>
               <p className="text-[11px] font-bold text-sky-300 uppercase tracking-wider">
@@ -984,7 +1005,7 @@ export const CosmicPlaygroundHub: React.FC = () => {
               <h3 className="font-display text-lg font-bold text-white mt-0.5">
                 Kalkulator Rata-Rata Skor UTBK-SNBT
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-300 mt-0.5">
                 Masukkan estimasi skor (0–1000) per rumpun subtes untuk melihat daya saingmu.
               </p>
             </div>
@@ -997,7 +1018,7 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 { label: 'Penalaran Matematika', idx: 3 },
               ].map((item) => (
                 <div key={item.label}>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[11px] font-semibold text-sky-200 mb-1">
                     {item.label}
                   </label>
                   <input
@@ -1010,16 +1031,16 @@ export const CosmicPlaygroundHub: React.FC = () => {
                       next[item.idx] = Number(e.target.value);
                       setUtbkScores(next);
                     }}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950/90 border border-sky-400/30 text-sm font-hud font-bold text-white outline-none focus:border-sky-400"
+                    className="w-full px-3 py-2 rounded-xl bg-[#071124]/90 border border-sky-400/20 text-sm font-hud font-bold text-white outline-none focus:border-sky-400"
                   />
                 </div>
               ))}
             </div>
 
-            <div className="p-4 rounded-2xl bg-sky-500/15 border border-sky-400/40">
+            <div className="p-4 rounded-2xl bg-sky-500/12 border border-sky-400/30">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-xs font-bold text-slate-200">Rata-Rata Skor UTBK:</span>
-                <span className="font-hud text-2xl font-extrabold text-sky-300 tabular-nums">
+                <span className="text-xs font-bold text-sky-100">Rata-Rata Skor UTBK:</span>
+                <span className="font-hud text-2xl font-extrabold text-amber-300 tabular-nums">
                   {utbkResult.average}
                 </span>
               </div>

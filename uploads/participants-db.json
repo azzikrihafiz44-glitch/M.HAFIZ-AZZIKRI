@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "uid": "part-mwvjz1ko-ca2798fb",
+    "username": "naufal.pratama",
+    "displayName": "Naufal Pratama",
+    "email": "naufal.pratama@peserta.hafizeducation.my.id",
+    "photoUrl": "/api/participant-photos/pimg-mwvjz1kn-289c9f60c39d.png",
+    "school": "MAN Insan Cendekia Jambi",
+    "phone": "",
+    "targetTrack": "utbk",
+    "targetCampus": "Teknik Informatika ITB",
+    "authMethod": "password",
+    "passwordHash": "544780b1a16373e3b06b06887ad6adcc:a3ae08c738dadd6b073c498618d8799abf6dc5d4e6a2c7514c9910facce7fd31a75fcbd2a6484dccf863ef51254dada1f7dd014f4eadc2b178e20ef3adb91f0b",
+    "avatar": {
+      "characterId": "char-alien-mars",
+      "skinColor": "#4ade80",
+      "hairId": "hair-spiky-navy",
+      "topId": "top-hoodie-indigo",
+      "bottomId": "bot-celana-jeans-biru",
+      "shoeId": "shoe-sport-indigo",
+      "accessoryId": "acc-headset-indigo"
+    },
+    "createdAt": "2026-11-25T03:17:24.024Z",
+    "updatedAt": "2026-11-25T03:17:24.024Z"
+  }
+]

@@ -1,4 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowRight,
+  Check,
+  Flame,
+  RefreshCw,
+  RotateCcw,
+  Timer,
+  Trophy,
+  UserCheck,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import type { HistoryRecord } from '../types/quiz';
 import { calculateAstronautRank, formatCountdownMMSS } from '../utils/astronautRank';
 import {
@@ -42,10 +54,10 @@ const STORAGE_FOCUS_KEY = 'hafiz_cosmic_focus_sessions_v1';
 const STORAGE_MISSIONS_V2_KEY = 'hafiz_cosmic_daily_missions_v2';
 
 const CATEGORY_META: Record<MissionCategory, { label: string; colorClass: string }> = {
-  fokus: { label: 'Fokus', colorClass: 'text-sky-300 bg-sky-500/15 border-sky-400/35' },
-  kuis: { label: 'Kuis', colorClass: 'text-indigo-200 bg-indigo-500/15 border-indigo-400/35' },
+  fokus: { label: 'Fokus', colorClass: 'text-sky-200 bg-sky-500/15 border-sky-400/35' },
+  kuis: { label: 'Kuis', colorClass: 'text-amber-200 bg-amber-500/15 border-amber-400/35' },
   materi: { label: 'Materi', colorClass: 'text-teal-200 bg-teal-500/15 border-teal-400/35' },
-  eksplorasi: { label: 'Eksplorasi', colorClass: 'text-amber-200 bg-amber-500/15 border-amber-400/35' },
+  eksplorasi: { label: 'Eksplorasi', colorClass: 'text-indigo-200 bg-indigo-500/15 border-indigo-400/35' },
 };
 
 const DIFFICULTY_COLOR: Record<MissionDifficulty, string> = {
@@ -107,7 +119,6 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
     });
   };
 
-  // Keep daily missions automatically rotating if the clock passes midnight
   useEffect(() => {
     const interval = window.setInterval(() => {
       const todayKey = getLocalDateKey();
@@ -124,14 +135,12 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
     return () => window.clearInterval(interval);
   }, []);
 
-  // Auto-hide transient mission reward banner
   useEffect(() => {
     if (!missionBanner) return;
     const t = window.setTimeout(() => setMissionBanner(null), 3500);
     return () => window.clearTimeout(t);
   }, [missionBanner]);
 
-  // Web Audio API synthesized ambient deep-space soundscape
   const audioCtxRef = useRef<AudioContext | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const oscNodesRef = useRef<OscillatorNode[]>([]);
@@ -205,7 +214,6 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
     };
   }, []);
 
-  // Countdown tick
   useEffect(() => {
     if (!isRunning) return;
     const timer = window.setInterval(() => {
@@ -248,7 +256,6 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
     setSecondsLeft(selectedPreset.minutes * 60);
   };
 
-  // Compute today's real quiz activity from userHistory
   const activitySnapshot = useMemo(() => {
     const todayKey = missionState.date;
     let quizzesToday = 0;
@@ -357,17 +364,18 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
   const ringDashOffset = ringCircumference * (1 - elapsedRatio);
 
   return (
-    <div id="cosmic-study-station" className="pt-4 space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-sky-400/20 pb-4">
+    <div id="cosmic-study-station" className="pt-2 space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-sky-400/15 pb-4">
         <div>
-          <p className="text-xs font-semibold text-sky-300 tracking-wide">
-            Stasiun Fokus &amp; Sistem Misi Belajar Harian
+          <p className="text-xs font-semibold text-sky-300 tracking-wide inline-flex items-center gap-1.5 uppercase">
+            <Timer className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
+            <span>Stasiun Fokus &amp; Sistem Misi Belajar Harian</span>
           </p>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mt-1">
             Timer Fokus Pomodoro &amp; Pangkat Astronot
           </h2>
         </div>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-300">
           Misi harian berganti otomatis setiap hari — selesaikan &amp; klaim XP untuk naik pangkat
         </p>
       </div>
@@ -378,25 +386,30 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="font-display text-xl font-bold text-white">Timer Fokus Belajar</h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-300 mt-0.5">
                 {selectedPreset.desc} · +100 XP setiap sesi selesai
               </p>
             </div>
             <button
               type="button"
               onClick={toggleAmbientAudio}
-              className={`px-3.5 py-2 rounded-xl border text-xs font-semibold transition whitespace-nowrap shrink-0 ${
+              className={`px-3 py-2 rounded-xl border text-xs font-semibold transition whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 ${
                 ambientOn
-                  ? 'bg-sky-500/25 border-sky-400/60 text-sky-100 shadow-[0_0_18px_rgba(56,189,248,0.28)]'
-                  : 'bg-slate-900/80 border-sky-400/25 text-slate-300 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-sky-500 text-white border-sky-300 font-bold shadow-[0_0_16px_rgba(14,165,233,0.35)]'
+                  : 'bg-[#09162e]/85 border-sky-400/20 text-sky-100 hover:bg-[#10254a] hover:text-white'
               }`}
             >
-              {ambientOn ? 'Suara Kosmik: Aktif' : 'Suara Kosmik: Mati'}
+              {ambientOn ? (
+                <Volume2 className="w-3.5 h-3.5" aria-hidden="true" />
+              ) : (
+                <VolumeX className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
+              )}
+              <span>{ambientOn ? 'Audio Kosmik: Aktif' : 'Audio Kosmik'}</span>
             </button>
           </div>
 
           {/* Preset Selector */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-1.5 bg-[#071124]/90 p-1 rounded-2xl border border-sky-400/15">
             {FOCUS_PRESETS.map((preset) => (
               <button
                 key={preset.id}
@@ -404,8 +417,8 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                 onClick={() => handleSelectPreset(preset)}
                 className={`py-2 px-2 rounded-xl text-xs font-semibold transition border ${
                   selectedPreset.id === preset.id
-                    ? 'bg-sky-500/25 border-sky-400/60 text-sky-100'
-                    : 'bg-slate-900/75 border-sky-400/15 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80'
+                    ? 'bg-sky-500 border-sky-300 text-white font-bold shadow-sm'
+                    : 'border-transparent text-slate-300 hover:text-sky-200'
                 }`}
               >
                 {preset.label}
@@ -422,8 +435,8 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                   cy="74"
                   r={ringRadius}
                   fill="none"
-                  stroke="rgba(56, 189, 248, 0.14)"
-                  strokeWidth="8"
+                  stroke="rgba(56, 189, 248, 0.16)"
+                  strokeWidth="7"
                 />
                 <circle
                   cx="74"
@@ -431,7 +444,7 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                   r={ringRadius}
                   fill="none"
                   stroke="url(#cosmic-timer-grad)"
-                  strokeWidth="8"
+                  strokeWidth="7"
                   strokeLinecap="round"
                   strokeDasharray={ringCircumference}
                   strokeDashoffset={ringDashOffset}
@@ -440,8 +453,8 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                 <defs>
                   <linearGradient id="cosmic-timer-grad" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#38bdf8" />
-                    <stop offset="50%" stopColor="#818cf8" />
-                    <stop offset="100%" stopColor="#2dd4bf" />
+                    <stop offset="50%" stopColor="#2dd4bf" />
+                    <stop offset="100%" stopColor="#fbbf24" />
                   </linearGradient>
                 </defs>
               </svg>
@@ -453,7 +466,7 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                   {formatCountdownMMSS(secondsLeft)}
                 </span>
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-sky-300 mt-1">
-                  {isRunning ? 'Fokus Aktif' : sessionJustFinished ? 'Sesi Selesai!' : 'Siap Mulai'}
+                  {isRunning ? 'Fokus Aktif' : sessionJustFinished ? 'Sesi Selesai' : 'Siap Mulai'}
                 </span>
               </div>
             </div>
@@ -469,20 +482,21 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                     setSessionJustFinished(false);
                     setIsRunning((r) => !r);
                   }}
-                  className="btn-gold py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold whitespace-nowrap"
+                  className="btn-gold py-3 px-4 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap"
                 >
                   {isRunning ? 'Jeda Timer' : 'Mulai Fokus'}
                 </button>
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="py-3 px-4 rounded-xl bg-slate-800/85 hover:bg-slate-700 border border-sky-400/30 text-sky-100 text-xs sm:text-sm font-bold transition whitespace-nowrap"
+                  className="py-3 px-4 rounded-xl bg-[#09162e]/85 hover:bg-[#10254a] border border-sky-400/20 text-sky-100 text-xs sm:text-sm font-semibold transition whitespace-nowrap inline-flex items-center justify-center gap-1.5"
                 >
-                  Reset
+                  <RotateCcw className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
+                  <span>Reset</span>
                 </button>
               </div>
-              <div className="px-4 py-3 rounded-2xl bg-slate-900/75 border border-sky-400/20 flex items-center justify-between text-xs">
-                <span className="text-slate-400">Sesi Fokus Selesai</span>
+              <div className="px-4 py-3 rounded-2xl bg-[#09162e]/85 border border-sky-400/15 flex items-center justify-between text-xs">
+                <span className="text-slate-300">Sesi Fokus Selesai</span>
                 <span className="font-hud font-bold text-emerald-300 tabular-nums">
                   {focusSessions} Sesi
                 </span>
@@ -494,16 +508,18 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
             <button
               type="button"
               onClick={handleOpenPortalsWithTracking}
-              className="py-2.5 px-3 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-100 text-xs font-bold transition whitespace-nowrap"
+              className="py-2.5 px-3 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-sky-100 text-xs font-semibold transition whitespace-nowrap inline-flex items-center justify-center gap-1.5"
             >
-              Buka Portal ASAS XII →
+              <span>Portal ASAS XII</span>
+              <ArrowRight className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
             </button>
             <button
               type="button"
               onClick={handleOpenWardrobeWithTracking}
-              className="py-2.5 px-3 rounded-xl bg-slate-800/85 hover:bg-slate-700 border border-sky-400/25 text-slate-200 text-xs font-bold transition whitespace-nowrap"
+              className="py-2.5 px-3 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-400/30 text-teal-100 text-xs font-semibold transition whitespace-nowrap inline-flex items-center justify-center gap-1.5"
             >
-              Ganti Avatar
+              <UserCheck className="w-3.5 h-3.5 text-teal-300" aria-hidden="true" />
+              <span>Ganti Avatar</span>
             </button>
           </div>
         </div>
@@ -514,24 +530,23 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
           <div className="space-y-3.5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold text-sky-300">
-                  Pangkat Astronot Level {rankInfo.level}
+                <p className="text-xs font-semibold text-sky-300 inline-flex items-center gap-1.5 uppercase tracking-wider">
+                  <Trophy className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />
+                  <span>Pangkat Astronot Level {rankInfo.level}</span>
                 </p>
-                <h3
-                  className="font-display text-2xl font-bold mt-0.5"
-                  style={{ color: rankInfo.accentColor }}
-                >
+                <h3 className="font-display text-2xl font-bold mt-0.5 text-gold-gradient">
                   {rankInfo.title}
                 </h3>
               </div>
               <div className="flex items-center gap-3">
-                <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-400/35 text-right">
-                  <p className="text-[10px] font-semibold text-amber-200 uppercase tracking-wider">
-                    Streak Harian
+                <div className="px-3 py-1.5 rounded-xl bg-[#09162e]/85 border border-amber-400/25 text-right">
+                  <p className="text-[10px] font-semibold text-amber-300 uppercase tracking-wider inline-flex items-center gap-1">
+                    <Flame className="w-3 h-3 text-amber-300" aria-hidden="true" />
+                    <span>Streak</span>
                   </p>
                   <p
                     data-testid="mission-streak-count"
-                    className="font-hud text-sm font-bold text-amber-300 tabular-nums"
+                    className="font-hud text-sm font-bold text-white tabular-nums"
                   >
                     {missionState.streakDays} Hari
                   </p>
@@ -539,11 +554,11 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                 <div className="text-right">
                   <p
                     data-testid="astronaut-xp-value"
-                    className="font-hud text-lg font-bold text-white tabular-nums"
+                    className="font-hud text-lg font-bold text-amber-200 tabular-nums"
                   >
                     {rankInfo.xp} XP
                   </p>
-                  <p className="text-[11px] text-slate-400 tabular-nums">
+                  <p className="text-[11px] text-slate-300 tabular-nums">
                     Target berikut: {rankInfo.nextRankXp} XP
                   </p>
                 </div>
@@ -552,13 +567,13 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
 
             {/* XP Progress Bar */}
             <div className="space-y-1.5">
-              <div className="h-2.5 w-full rounded-full bg-slate-900/90 border border-sky-400/25 overflow-hidden">
+              <div className="h-2 w-full rounded-full bg-[#071124] border border-sky-400/20 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-sky-400 via-indigo-400 to-teal-300 transition-all duration-500"
+                  className="h-full rounded-full bg-gradient-to-r from-sky-400 via-teal-300 to-amber-400 transition-all duration-500"
                   style={{ width: `${Math.max(6, rankInfo.progressPercent)}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-400 tabular-nums">
+              <div className="flex items-center justify-between text-[11px] text-slate-300 tabular-nums">
                 <span>Progres Pangkat: {rankInfo.progressPercent}%</span>
                 <span>
                   {userHistory.length} Kuis · {focusSessions} Fokus · +{missionState.totalClaimedXp}{' '}
@@ -569,13 +584,13 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
           </div>
 
           {/* Dynamic Daily Missions System */}
-          <div className="space-y-3 pt-3 border-t border-sky-400/20">
+          <div className="space-y-3 pt-3 border-t border-sky-400/15">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 className="text-sm font-bold text-white">
                   Misi Belajar Harian ({claimedCount}/{DAILY_MISSION_SLOTS} Selesai)
                 </h4>
-                <p className="text-[11px] text-slate-400 tabular-nums">
+                <p className="text-[11px] text-slate-300 tabular-nums">
                   Rotasi otomatis harian · Reset dalam {resetCountdown}
                 </p>
               </div>
@@ -584,16 +599,17 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                 id="btn-reroll-missions"
                 onClick={handleRerollAll}
                 disabled={missionState.rerollsRemaining <= 0 || !hasUnclaimedMission}
-                className="px-3 py-1.5 rounded-xl border border-sky-400/35 bg-sky-500/15 hover:bg-sky-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-sky-100 transition whitespace-nowrap"
+                className="px-3 py-1.5 rounded-xl border border-sky-400/25 bg-[#09162e]/85 hover:bg-[#10254a] disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-sky-100 transition whitespace-nowrap inline-flex items-center gap-1.5"
               >
-                Acak Misi ({missionState.rerollsRemaining}x)
+                <RefreshCw className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />
+                <span>Acak Misi ({missionState.rerollsRemaining}x)</span>
               </button>
             </div>
 
             {missionBanner && (
               <div
                 role="status"
-                className="px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-400/40 text-xs font-semibold text-emerald-200"
+                className="px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-emerald-400/35 text-xs font-semibold text-emerald-200"
               >
                 {missionBanner}
               </div>
@@ -610,15 +626,15 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                     data-testid={`mission-card-${mission.id}`}
                     className={`p-3.5 rounded-2xl border transition ${
                       mission.isClaimed
-                        ? 'bg-emerald-500/10 border-emerald-400/35'
+                        ? 'bg-emerald-500/10 border-emerald-400/30'
                         : mission.isCompleted
-                        ? 'bg-sky-500/15 border-sky-400/50 shadow-[0_0_20px_rgba(56,189,248,0.16)]'
-                        : 'bg-slate-900/75 border-sky-400/15 hover:border-sky-400/35'
+                        ? 'bg-amber-500/10 border-amber-400/40'
+                        : 'bg-[#09162e]/75 border-sky-400/15 hover:border-sky-400/35'
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="min-w-0 flex-1 space-y-1.5">
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span
                             className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${catMeta.colorClass}`}
                           >
@@ -629,7 +645,7 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                           >
                             {mission.difficulty}
                           </span>
-                          <span className="font-hud text-[11px] font-bold text-sky-300 tabular-nums">
+                          <span className="font-hud text-[11px] font-bold text-amber-200 tabular-nums">
                             +{mission.xpReward} XP
                           </span>
                         </div>
@@ -641,25 +657,25 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                         >
                           {mission.title}
                         </p>
-                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                        <p className="text-[11px] text-slate-300 leading-relaxed">
                           {mission.description}
                         </p>
 
                         {/* Mission Progress Bar */}
                         <div className="flex items-center gap-2.5 pt-0.5">
-                          <div className="h-1.5 flex-1 rounded-full bg-slate-800 overflow-hidden">
+                          <div className="h-1.5 flex-1 rounded-full bg-[#071124] overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all duration-300 ${
                                 mission.isClaimed
                                   ? 'bg-emerald-400'
                                   : mission.isCompleted
-                                  ? 'bg-amber-300'
+                                  ? 'bg-amber-400'
                                   : 'bg-sky-400'
                               }`}
                               style={{ width: `${mission.progressPercent}%` }}
                             />
                           </div>
-                          <span className="font-hud text-[11px] text-slate-300 tabular-nums shrink-0">
+                          <span className="font-hud text-[11px] text-sky-200 tabular-nums shrink-0">
                             {mission.progress}/{mission.target} {mission.unit}
                           </span>
                         </div>
@@ -668,15 +684,16 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                       {/* Mission Action Controls */}
                       <div className="flex items-center gap-1.5 shrink-0">
                         {mission.isClaimed ? (
-                          <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold whitespace-nowrap">
-                            ✓ Terklaim
+                          <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/35 text-emerald-200 text-xs font-bold whitespace-nowrap inline-flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span>Terklaim</span>
                           </span>
                         ) : mission.isCompleted ? (
                           <button
                             type="button"
                             onClick={() => handleClaimMission(mission.id)}
                             aria-label={`Klaim ${mission.xpReward} XP untuk ${mission.title}`}
-                            className="btn-gold px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap"
+                            className="btn-gold px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap"
                           >
                             Klaim +{mission.xpReward} XP
                           </button>
@@ -685,12 +702,12 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                             type="button"
                             onClick={() => handleManualStep(mission.id)}
                             aria-label={`Tambah progres untuk ${mission.title}`}
-                            className="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-100 text-xs font-bold transition whitespace-nowrap"
+                            className="px-3 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/35 text-sky-100 text-xs font-semibold transition whitespace-nowrap"
                           >
                             {mission.target > 1 ? '+1 Progres' : 'Tandai Selesai'}
                           </button>
                         ) : (
-                          <span className="px-2.5 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700 text-[11px] font-semibold text-slate-400 whitespace-nowrap">
+                          <span className="px-2.5 py-1.5 rounded-xl bg-[#071124]/90 border border-sky-400/15 text-[11px] font-medium text-slate-300 whitespace-nowrap">
                             Otomatis
                           </span>
                         )}
@@ -702,7 +719,7 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                             disabled={missionState.rerollsRemaining <= 0}
                             aria-label={`Ganti misi ${mission.title}`}
                             title="Ganti misi ini dengan tantangan lain"
-                            className="px-2.5 py-1.5 rounded-xl bg-slate-800/85 hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed border border-sky-400/20 text-slate-300 hover:text-white text-[11px] font-semibold transition whitespace-nowrap"
+                            className="px-2.5 py-1.5 rounded-xl bg-[#071124]/90 hover:bg-[#10254a] disabled:opacity-35 disabled:cursor-not-allowed border border-sky-400/15 text-slate-300 hover:text-white text-[11px] font-semibold transition whitespace-nowrap"
                           >
                             Ganti
                           </button>
@@ -718,17 +735,17 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
             <div
               className={`p-3.5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${
                 missionState.bonusClaimed
-                  ? 'bg-emerald-500/10 border-emerald-400/35'
+                  ? 'bg-emerald-500/10 border-emerald-400/30'
                   : allMissionsClaimed
-                  ? 'bg-amber-500/15 border-amber-400/50'
-                  : 'bg-slate-900/60 border-sky-400/15'
+                  ? 'bg-amber-500/12 border-amber-400/45'
+                  : 'bg-[#09162e]/75 border-sky-400/15'
               }`}
             >
               <div>
                 <p className="text-xs font-bold text-white">
                   Bonus Tuntas Semua Misi Harian (+{ALL_MISSIONS_BONUS_XP} XP)
                 </p>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-300">
                   {missionState.bonusClaimed
                     ? 'Bonus harian hari ini sudah berhasil diklaim!'
                     : allMissionsClaimed
@@ -737,15 +754,16 @@ export const CosmicStudyStation: React.FC<CosmicStudyStationProps> = ({
                 </p>
               </div>
               {missionState.bonusClaimed ? (
-                <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold">
-                  ✓ Bonus Terklaim
+                <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/35 text-emerald-200 text-xs font-bold inline-flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Bonus Terklaim</span>
                 </span>
               ) : (
                 <button
                   type="button"
                   onClick={handleClaimBonus}
                   disabled={!allMissionsClaimed}
-                  className="px-3.5 py-2 rounded-xl bg-amber-400/20 hover:bg-amber-400/35 disabled:opacity-40 disabled:cursor-not-allowed border border-amber-400/45 text-amber-200 text-xs font-bold transition whitespace-nowrap"
+                  className="btn-gold px-3.5 py-2 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold transition whitespace-nowrap"
                 >
                   Klaim +{ALL_MISSIONS_BONUS_XP} XP
                 </button>

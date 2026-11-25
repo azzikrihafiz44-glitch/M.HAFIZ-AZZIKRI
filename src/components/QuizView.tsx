@@ -372,8 +372,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
               onClick={() => setShowQuestionNavigator((v) => !v)}
               className={`px-3 py-1.5 rounded-xl border font-semibold text-xs inline-flex items-center gap-1.5 transition ${
                 showQuestionNavigator
-                  ? 'bg-indigo-600 text-white border-indigo-400'
-                  : 'bg-slate-900/90 hover:bg-slate-800 border-slate-700 text-slate-200'
+                  ? 'bg-sky-500 text-white border-sky-300 shadow-sm'
+                  : 'bg-[#09162e]/90 hover:bg-[#0f2347] border-sky-400/20 text-sky-100'
               }`}
             >
               <ListOrdered className="w-3.5 h-3.5" />
@@ -387,8 +387,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
               onClick={() => setShowLiveBoard((v) => !v)}
               className={`px-3 py-1.5 rounded-xl border font-semibold text-xs inline-flex items-center gap-1.5 transition ${
                 showLiveBoard
-                  ? 'bg-indigo-600 text-white border-indigo-400'
-                  : 'bg-slate-900/90 hover:bg-slate-800 border-slate-700 text-slate-200'
+                  ? 'bg-sky-500 text-white border-sky-300 shadow-sm'
+                  : 'bg-[#09162e]/90 hover:bg-[#0f2347] border-sky-400/20 text-sky-100'
               }`}
             >
               <Trophy className="w-3.5 h-3.5 text-amber-400" />
@@ -429,15 +429,15 @@ export const QuizView: React.FC<QuizViewProps> = ({
           </div>
         </div>
 
-        <div className="w-full h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
+        <div className="w-full h-1.5 rounded-full bg-[#09162e] border border-sky-400/15 overflow-hidden">
           <div
             id="quiz-progress-bar"
-            className="h-full bg-indigo-500 transition-all duration-300"
+            className="h-full bg-gradient-to-r from-sky-400 via-teal-300 to-amber-400 transition-all duration-300"
             style={{ width: `${pct}%` }}
           />
         </div>
 
-        <div className="flex flex-wrap justify-between gap-2 text-[11px] text-slate-400 font-medium">
+        <div className="flex flex-wrap justify-between gap-2 text-[11px] text-slate-300 font-medium">
           <span className="truncate">{quizTitle}</span>
           <span className="tabular-nums">
             Terjawab {answeredCount}/{totalQuestions} ({pct}%) · Tersisa {unansweredCount} soal
@@ -448,7 +448,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
         {showQuestionNavigator && (
           <div
             id="quiz-question-navigator"
-            className="mt-2 p-4 rounded-xl bg-slate-950/90 border border-slate-800 space-y-3"
+            className="mt-2 p-4 rounded-xl bg-[#071124]/92 border border-sky-400/20 space-y-3"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -504,17 +504,17 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     onClick={() => setNavigatorFilter(f.id)}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
                       navigatorFilter === f.id
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
+                        ? 'bg-sky-500 text-white shadow-sm'
+                        : 'bg-[#09162e] text-slate-300 hover:bg-[#0f2347] border border-sky-400/15'
                     }`}
                   >
                     {f.label}
                   </button>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+              <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-300">
                 <span className="inline-flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-indigo-400" /> Aktif
+                  <span className="w-2 h-2 rounded-full bg-sky-400" /> Aktif
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" /> Benar
@@ -537,7 +537,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 {visibleNavigatorItems.map(({ q, idx, isAnswered, isRight, isFlagged }) => {
                   const isActive = idx === questionIndex;
                   let btnStyle =
-                    'bg-slate-900 border-slate-700 text-slate-200 hover:border-indigo-400/70 hover:bg-slate-800';
+                    'bg-[#09162e] border-sky-400/20 text-sky-100 hover:border-sky-400/60 hover:bg-[#0f2347]';
                   if (isAnswered) {
                     btnStyle = isRight
                       ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-200'
@@ -546,7 +546,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     btnStyle = 'bg-amber-500/20 border-amber-500/60 text-amber-200';
                   }
                   if (isActive) {
-                    btnStyle += ' ring-2 ring-indigo-400 ring-offset-1 ring-offset-slate-950 font-bold';
+                    btnStyle += ' ring-2 ring-sky-400 ring-offset-1 ring-offset-[#071124] font-bold';
                   }
 
                   return (
@@ -561,7 +561,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                       {isFlagged && (
                         <span
                           aria-label="Ditandai ragu-ragu"
-                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-slate-950"
+                          className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 border border-[#071124]"
                         />
                       )}
                     </button>
@@ -582,12 +582,12 @@ export const QuizView: React.FC<QuizViewProps> = ({
                       }}
                       className={`w-full text-left p-2.5 rounded-xl border transition flex items-center justify-between gap-3 ${
                         isActive
-                          ? 'bg-indigo-600/20 border-indigo-400'
-                          : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                          ? 'bg-sky-500/20 border-sky-400/60'
+                          : 'bg-[#09162e]/85 border-sky-400/15 hover:border-sky-400/35'
                       }`}
                     >
                       <div className="flex items-start gap-2.5 min-w-0">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-800 text-indigo-300 font-bold text-xs tabular-nums shrink-0">
+                        <span className="px-2 py-0.5 rounded-md bg-[#0d1f42] text-sky-200 font-bold text-xs tabular-nums shrink-0">
                           #{idx + 1}
                         </span>
                         <span className="text-xs text-slate-200 line-clamp-2">{q.question}</span>
@@ -645,7 +645,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
         {/* Collapsible Live Standings */}
         {showLiveBoard && (
-          <div className="mt-2 p-3.5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2.5">
+          <div className="mt-2 p-3.5 rounded-xl bg-[#071124]/92 border border-sky-400/20 space-y-2.5">
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-white inline-flex items-center gap-1.5">
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
@@ -654,7 +654,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowLiveBoard(false)}
-                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+                className="p-1 rounded-lg hover:bg-[#0d1f42] text-slate-400 hover:text-white"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -662,18 +662,30 @@ export const QuizView: React.FC<QuizViewProps> = ({
             {liveLeaderboard.length === 0 ? (
               <p className="text-xs text-slate-400">Belum ada skor peserta yang tercatat.</p>
             ) : (
-              <div className="max-h-52 overflow-y-auto custom-scrollbar divide-y divide-slate-800/80">
+              <div className="max-h-52 overflow-y-auto custom-scrollbar divide-y divide-sky-400/15">
                 {liveLeaderboard.map((entry) => (
                   <div
                     key={entry.id}
                     className={`py-2 px-2.5 flex items-center justify-between gap-2 text-xs ${
-                      entry.isCurrentUser ? 'bg-indigo-500/15 rounded-lg' : ''
+                      entry.isCurrentUser ? 'bg-sky-500/15 rounded-lg' : ''
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-bold text-amber-300 w-6 tabular-nums">
                         #{entry.rank}
                       </span>
+                      {entry.photoUrl ? (
+                        <img
+                          src={entry.photoUrl}
+                          alt={entry.name}
+                          referrerPolicy="no-referrer"
+                          className="w-6 h-6 rounded-full object-cover border border-sky-400/35 shrink-0"
+                        />
+                      ) : (
+                        <span className="w-6 h-6 rounded-full bg-[#0d1f42] border border-sky-400/25 text-[10px] font-bold text-sky-100 flex items-center justify-center shrink-0 uppercase">
+                          {entry.name.trim().slice(0, 2) || 'P'}
+                        </span>
+                      )}
                       <span className="font-semibold text-white truncate">
                         {entry.name} {entry.isCurrentUser ? '(Kamu)' : ''}
                       </span>
@@ -685,7 +697,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                     </div>
                     <div className="flex items-center gap-3 shrink-0 tabular-nums">
                       <span className="text-emerald-300 font-semibold">Nilai {entry.grade}</span>
-                      <span className="text-indigo-300 font-bold">{entry.points} pts</span>
+                      <span className="text-sky-200 font-bold">{entry.points} pts</span>
                     </div>
                   </div>
                 ))}
@@ -740,7 +752,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-sky-300">
               Pertanyaan No. {questionIndex + 1}
             </span>
             <span className="hidden sm:inline text-[11px] text-slate-400">
@@ -851,8 +863,8 @@ export const QuizView: React.FC<QuizViewProps> = ({
                   </p>
                 )}
 
-                <div className="p-3.5 rounded-lg bg-slate-950/75 border border-slate-800">
-                  <p className="text-[11px] font-bold text-indigo-300 mb-1 inline-flex items-center gap-1.5">
+                <div className="p-3.5 rounded-lg bg-[#071124]/85 border border-sky-400/20">
+                  <p className="text-[11px] font-bold text-sky-300 mb-1 inline-flex items-center gap-1.5">
                     <BookOpen className="w-3.5 h-3.5" />
                     <span>Pembahasan</span>
                   </p>
@@ -866,7 +878,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
                 type="button"
                 id="btn-next-question"
                 onClick={isLast && unansweredCount === 0 ? onFinishQuiz : onNextQuestion}
-                className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 shrink-0 whitespace-nowrap transition"
+                className="btn-gold px-5 py-3 rounded-xl font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 shrink-0 whitespace-nowrap transition"
               >
                 <span>
                   {isLast && unansweredCount === 0
@@ -927,7 +939,7 @@ export const QuizView: React.FC<QuizViewProps> = ({
               id="btn-skip-next-question"
               disabled={isLast && unansweredCount === 0}
               onClick={onNextQuestion}
-              className="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 text-xs font-semibold text-indigo-300 inline-flex items-center gap-1.5 transition"
+              className="px-3.5 py-2 rounded-xl bg-[#09162e]/90 hover:bg-[#0f2347] disabled:opacity-40 disabled:cursor-not-allowed border border-sky-400/20 text-xs font-semibold text-sky-100 inline-flex items-center gap-1.5 transition"
             >
               <span>{answered ? 'Berikutnya' : 'Lewati Dulu'}</span>
               <ChevronRight className="w-3.5 h-3.5" />

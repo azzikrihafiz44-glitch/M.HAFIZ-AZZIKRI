@@ -2,12 +2,14 @@ import { initializeApp } from 'firebase/app';
 import {
   createUserWithEmailAndPassword,
   getAuth,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile,
   type User,
@@ -44,6 +46,12 @@ import {
   sanitizePackageId,
   sanitizeUuidGuid,
 } from './utils/appStoreDistribution';
+import {
+  isRestrictedInAppBrowser,
+  isRunningInsideIframe,
+  resolveGoogleAuthFailureStrategy,
+  type GoogleAuthFailureDecision,
+} from './utils/googlePopupAuth';
 
 export const ADMIN_EMAIL = 'jikikuki41@gmail.com';
 
@@ -112,6 +120,74 @@ export function handleFirestoreError(
 export function isVerifiedAdminUser(user: User | null): boolean {
   if (!user) return false;
   return Boolean(user.emailVerified && user.email?.toLowerCase() === ADMIN_EMAIL);
+}
+
+const REDIRECT_ROLE_STORAGE_KEY = 'hafiz_google_redirect_role_v1';
+
+export type GoogleAuthFlowResult =
+  | { status: 'success'; user: User }
+  | { status: 'redirecting' }
+  | { status: 'recovery-needed'; reason: GoogleAuthFailureDecision };
+
+export async function signInWithGoogleSmart(
+  role: 'participant' | 'admin'
+): Promise<GoogleAuthFlowResult> {
+  const startedAt = Date.now();
+  try {
+    // Call signInWithPopup immediately inside click gesture so browser preserves user activation
+    const result = await signInWithPopup(auth, googleProvider);
+    return { status: 'success', user: result.user };
+  } catch (err) {
+    const decision = resolveGoogleAuthFailureStrategy({
+      error: err,
+      inIframe: isRunningInsideIframe(),
+      inAppBrowser: isRestrictedInAppBrowser(
+        typeof navigator !== 'undefined' ? navigator.userAgent : ''
+      ),
+      elapsedMs: Date.now() - startedAt,
+    });
+
+    if (decision.action === 'redirect-fallback') {
+      try {
+        sessionStorage.setItem(REDIRECT_ROLE_STORAGE_KEY, role);
+      } catch {
+        // ignore sessionStorage error
+      }
+      await signInWithRedirect(auth, googleProvider);
+      return { status: 'redirecting' };
+    }
+
+    return { status: 'recovery-needed', reason: decision };
+  }
+}
+
+export async function consumeGoogleRedirectResult(): Promise<{
+  user: User | null;
+  role: 'participant' | 'admin' | null;
+}> {
+  let storedRole: 'participant' | 'admin' | null = null;
+  try {
+    const rawRole = sessionStorage.getItem(REDIRECT_ROLE_STORAGE_KEY);
+    if (rawRole === 'admin' || rawRole === 'participant') {
+      storedRole = rawRole;
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    const result = await getRedirectResult(auth);
+    if (result?.user) {
+      try {
+        sessionStorage.removeItem(REDIRECT_ROLE_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+      return { user: result.user, role: storedRole || 'participant' };
+    }
+  } catch (err) {
+    console.warn('Google redirect sign-in check failed:', err);
+  }
+  return { user: null, role: null };
 }
 
 export async function signInAdminWithGoogle(): Promise<User> {

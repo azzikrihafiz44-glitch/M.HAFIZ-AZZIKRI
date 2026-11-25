@@ -104,7 +104,7 @@ export const UI_TRANSLATIONS: Record<UserWebLanguage, LocalizedUiStrings> = {
   id: {
     navHome: 'Beranda',
     navPortal: 'Portal Belajar',
-    navCampus: '🎯 Analisis Kampus',
+    navCampus: 'Analisis Kampus',
     navKedinasan: 'Kedinasan',
     navLiveTeaching: 'Live Teaching',
     navAbout: 'Tentang',
@@ -121,7 +121,7 @@ export const UI_TRANSLATIONS: Record<UserWebLanguage, LocalizedUiStrings> = {
   en: {
     navHome: 'Home',
     navPortal: 'Study Portal',
-    navCampus: '🎯 Campus Match',
+    navCampus: 'Campus Match',
     navKedinasan: 'Civil Service',
     navLiveTeaching: 'Live Teaching',
     navAbout: 'About',

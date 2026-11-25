@@ -7,6 +7,7 @@ import type {
   LeaderboardEntry,
   LobbyChatMessage,
   LobbyPlayer,
+  PublicParticipantProfile,
   QuizCategory,
   QuizQuestion,
   QuizRoom,
@@ -83,10 +84,11 @@ import {
   saveUserWebSettings,
   type UserWebSettings,
 } from './utils/webSettings';
-import type {
-  ParticipantAuthMethod,
-  ParticipantTargetTrack,
-  SavedSkdSummary,
+import {
+  sanitizeParticipantPhotoUrl,
+  type ParticipantAuthMethod,
+  type ParticipantTargetTrack,
+  type SavedSkdSummary,
 } from './utils/participantAuth';
 import {
   AdminConfirmModal,
@@ -125,8 +127,8 @@ import {
   setRoomStatusInFirestore,
   deleteLiveSessionFromFirestore,
   saveLiveSessionToFirestore,
-  signInAdminWithGoogle,
-  signInParticipantWithGoogle,
+  consumeGoogleRedirectResult,
+  signInWithGoogleSmart,
   signOutAdmin,
   subscribeToAllMaterials,
   subscribeToAllRooms,
@@ -185,6 +187,7 @@ export function App() {
   const participantTokenRef = useRef<string>('');
   const [userHistory, setUserHistory] = useState<HistoryRecord[]>([]);
   const [participants, setParticipants] = useState<ParticipantRecord[]>([]);
+  const [publicDirectory, setPublicDirectory] = useState<PublicParticipantProfile[]>([]);
   const [uploadedMaterials, setUploadedMaterials] = useState<StudyModule[]>(() => {
     try {
       const raw = localStorage.getItem('hafiz_uploaded_materials_v1');
@@ -205,6 +208,8 @@ export function App() {
   const [webSettings, setWebSettings] = useState<UserWebSettings>(() => loadUserWebSettings());
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'register' | 'login' | 'profile'>('register');
+  const [googleRecoveryMessage, setGoogleRecoveryMessage] = useState('');
+  const [adminGoogleRecoveryMessage, setAdminGoogleRecoveryMessage] = useState('');
   const [participantMeta, setParticipantMeta] = useState<{
     username?: string;
     photoUrl?: string;
@@ -346,8 +351,47 @@ export function App() {
     : firebaseUser?.email ?? null;
   const activeParticipantUid =
     serverParticipant?.uid || firebaseUser?.uid || sessionPlayerIdRef.current;
-  const activeParticipantPhotoUrl =
-    participantMeta.photoUrl || serverParticipant?.photoUrl || '';
+
+  const fetchPublicDirectory = useCallback(async () => {
+    try {
+      const res = await fetch('/api/participants/public-directory', {
+        method: 'GET',
+        credentials: 'same-origin',
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        ok?: boolean;
+        directory?: PublicParticipantProfile[];
+      };
+      if (Array.isArray(data.directory)) {
+        setPublicDirectory(data.directory);
+      }
+    } catch {
+      // ignore directory fetch failure
+    }
+  }, []);
+
+  const matchedDirEntry = useMemo(() => {
+    const uid = serverParticipant?.uid || firebaseUser?.uid;
+    if (uid) {
+      const byUid = publicDirectory.find((p) => p.uid === uid && p.photoUrl);
+      if (byUid) return byUid;
+    }
+    const cleanName = playerName.trim().toLowerCase();
+    if (cleanName.length >= 2) {
+      return publicDirectory.find(
+        (p) => p.photoUrl && p.displayName.trim().toLowerCase() === cleanName
+      );
+    }
+    return undefined;
+  }, [firebaseUser?.uid, playerName, publicDirectory, serverParticipant?.uid]);
+
+  const activeParticipantPhotoUrl = participantMeta.photoUrl?.startsWith('data:image/')
+    ? participantMeta.photoUrl
+    : matchedDirEntry?.photoUrl ||
+      serverParticipant?.photoUrl ||
+      participantMeta.photoUrl ||
+      '';
 
   const fetchServerParticipantsList = useCallback(async (): Promise<ParticipantRecord[]> => {
     if (!adminTokenRef.current) return [];
@@ -468,6 +512,7 @@ export function App() {
         if (!silent) {
           notify('☁️ Database Peserta, Materi, Room & Riwayat berhasil disinkronkan!', 'success');
         }
+        fetchPublicDirectory();
       } catch (err) {
         console.warn('Cloud sync error:', err);
         if (!silent) {
@@ -477,11 +522,12 @@ export function App() {
         setIsSyncingCloud(false);
       }
     },
-    [fetchServerParticipantsList, firebaseUser, notify, uploadedMaterials]
+    [fetchPublicDirectory, fetchServerParticipantsList, firebaseUser, notify, uploadedMaterials]
   );
 
-  // Restore non-Google participant session on mount
+  // Restore non-Google participant session & fetch public participant photo directory on mount
   useEffect(() => {
+    fetchPublicDirectory();
     fetch('/api/participants/me', {
       method: 'GET',
       credentials: 'include',
@@ -518,10 +564,25 @@ export function App() {
       .catch(() => {});
   }, []);
 
-  // Initialize SHA-256 system password, test Firestore connection, and listen to Firebase Auth
+  // Initialize SHA-256 system password, test Firestore connection, consume redirect login, and listen to Firebase Auth
   useEffect(() => {
     ensureSystemPassword().then(setSystemPw);
     testFirestoreConnection();
+    consumeGoogleRedirectResult()
+      .then(async ({ user, role }) => {
+        if (!user) return;
+        if (role === 'admin' && isVerifiedAdminUser(user)) {
+          setAdminAuthenticated(true);
+          setAdminNavUnlocked(true);
+          setView('admin');
+          notify(`🛡️ Login Google Admin berhasil (${user.email})!`, 'success');
+          await syncAdminCloudData(true);
+        } else {
+          const fallbackName = user.displayName || user.email?.split('@')[0] || 'Peserta';
+          notify(`Berhasil masuk dengan Google sebagai ${fallbackName}.`, 'success');
+        }
+      })
+      .catch(() => {});
     const unsub = onAuthChange(async (user) => {
       setFirebaseUser(user);
       if (user && user.email) {
@@ -533,12 +594,17 @@ export function App() {
           listMaterialsFromFirestore().catch(() => [] as StudyModule[]),
         ]);
         const isEmailProvider = user.providerData.some((p) => p.providerId === 'password');
+        const googlePhotoUrl = sanitizeParticipantPhotoUrl(user.photoURL);
         if (profile) {
-          if (profile.displayName) setPlayerName(profile.displayName);
+          if (profile.displayName) {
+            setPlayerName(profile.displayName);
+          } else if (user.displayName) {
+            setPlayerName((prev) => prev || user.displayName || '');
+          }
           if (profile.avatar) setAvatar(profile.avatar);
           setParticipantMeta((prev) => ({
             username: profile.username || prev.username,
-            photoUrl: profile.photoUrl || prev.photoUrl,
+            photoUrl: profile.photoUrl || prev.photoUrl || googlePhotoUrl,
             school: profile.school ?? prev.school,
             phone: profile.phone ?? prev.phone,
             targetTrack: profile.targetTrack ?? prev.targetTrack,
@@ -552,6 +618,7 @@ export function App() {
           }
           setParticipantMeta((prev) => ({
             ...prev,
+            photoUrl: prev.photoUrl || googlePhotoUrl,
             authMethod: isEmailProvider ? 'email' : 'google',
           }));
         }
@@ -570,6 +637,39 @@ export function App() {
           } catch {
             // ignore storage quota
           }
+        }
+        // Sync Google user into Database Peserta so Admin & fellow participants can see/manage their photo
+        try {
+          const idToken = await user.getIdToken();
+          const syncRes = await fetch('/api/participants/sync-google', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              idToken,
+              displayName: profile?.displayName || user.displayName || user.email.split('@')[0],
+              school: profile?.school ?? '',
+              phone: profile?.phone ?? '',
+              targetTrack: profile?.targetTrack ?? 'utbk',
+              targetCampus: profile?.targetCampus ?? '',
+              photoUrl: profile?.photoUrl || googlePhotoUrl || '',
+            }),
+          });
+          if (syncRes.ok) {
+            const syncJson = (await syncRes.json()) as {
+              ok?: boolean;
+              participant?: ParticipantRecord;
+            };
+            if (syncJson.participant?.photoUrl) {
+              setParticipantMeta((prev) => ({
+                ...prev,
+                photoUrl: syncJson.participant!.photoUrl || prev.photoUrl,
+              }));
+            }
+            fetchPublicDirectory();
+          }
+        } catch {
+          // ignore sync hiccup
         }
       } else {
         setUserHistory([]);
@@ -900,7 +1000,28 @@ export function App() {
             timestamp: new Date().toISOString(),
           },
         ];
-    return rankLeaderboard(merged);
+    const resolvePhotoForEntry = (uid: string, name: string): string | undefined => {
+      if (uid === activeParticipantUid && activeParticipantPhotoUrl) {
+        return activeParticipantPhotoUrl;
+      }
+      const dirMatch =
+        publicDirectory.find((p) => p.uid === uid && p.photoUrl) ||
+        publicDirectory.find(
+          (p) => p.photoUrl && p.displayName.trim().toLowerCase() === name.trim().toLowerCase()
+        );
+      if (dirMatch?.photoUrl) return dirMatch.photoUrl;
+      const lobbyMatch =
+        firestoreLobbyPlayers.find((p) => p.id === uid && p.photoUrl) ||
+        serverLobbyPlayers.find((p) => p.id === uid && p.photoUrl);
+      return lobbyMatch?.photoUrl || undefined;
+    };
+
+    const enriched = merged.map((entry) => ({
+      ...entry,
+      photoUrl: entry.photoUrl || resolvePhotoForEntry(entry.id, entry.name),
+    }));
+
+    return rankLeaderboard(enriched);
   }, [
     roomLeaderboardRaw,
     firebaseUser?.uid,
@@ -912,6 +1033,11 @@ export function App() {
     view,
     answersByIndex,
     cheatCount,
+    activeParticipantUid,
+    activeParticipantPhotoUrl,
+    publicDirectory,
+    firestoreLobbyPlayers,
+    serverLobbyPlayers,
   ]);
 
   const activeSavedRoom = rooms[activeRoomCode] ?? rooms[DEFAULT_ROOM.code] ?? DEFAULT_ROOM;
@@ -927,12 +1053,21 @@ export function App() {
       photoUrl: activeParticipantPhotoUrl || undefined,
     };
     const mergedMap = new Map<string, LobbyPlayer>();
+    const enrichPhoto = (p: LobbyPlayer): LobbyPlayer => {
+      if (p.photoUrl) return p;
+      const dir =
+        publicDirectory.find((d) => d.uid === p.id && d.photoUrl) ||
+        publicDirectory.find(
+          (d) => d.photoUrl && d.displayName.trim().toLowerCase() === p.name.trim().toLowerCase()
+        );
+      return dir?.photoUrl ? { ...p, photoUrl: dir.photoUrl } : p;
+    };
     for (const p of firestoreLobbyPlayers) {
-      if (p.id !== activeParticipantUid) mergedMap.set(p.id, p);
+      if (p.id !== activeParticipantUid) mergedMap.set(p.id, enrichPhoto(p));
     }
     for (const sp of serverLobbyPlayers) {
       if (sp.id !== activeParticipantUid && !mergedMap.has(sp.id)) {
-        mergedMap.set(sp.id, sp);
+        mergedMap.set(sp.id, enrichPhoto(sp));
       }
     }
     return [localEntry, ...Array.from(mergedMap.values())];
@@ -942,6 +1077,7 @@ export function App() {
     avatar,
     firestoreLobbyPlayers,
     playerName,
+    publicDirectory,
     serverLobbyPlayers,
   ]);
 
@@ -1114,32 +1250,66 @@ export function App() {
   };
 
   const handleOpenParticipantAuth = (mode: 'register' | 'login' | 'profile' = 'register') => {
+    setGoogleRecoveryMessage('');
     setAuthModalMode(mode);
     setAuthModalOpen(true);
   };
 
-  const handleParticipantLogin = async () => {
-    try {
-      const user = await signInParticipantWithGoogle();
-      if (isVerifiedAdminUser(user)) {
-        setAdminAuthenticated(true);
-      }
-      if (user.email) {
-        const nextMeta = { ...participantMeta, authMethod: 'google' as const };
-        setParticipantMeta(nextMeta);
-        await saveUserProfileToFirestore(
-          user.uid,
-          user.email,
-          playerName || user.displayName || 'Peserta',
-          avatar,
-          nextMeta
-        );
-      }
-      setAuthModalOpen(false);
-      notify(`✅ Berhasil login sebagai ${user.displayName || user.email}!`, 'success');
-    } catch {
-      notify('Login Google dibatalkan atau pop-up diblokir oleh browser.', 'warning');
+  const finalizeParticipantGoogleUser = async (user: User) => {
+    if (isVerifiedAdminUser(user)) {
+      setAdminAuthenticated(true);
     }
+    const existingProfile = user.uid ? await loadUserProfileFromFirestore(user.uid) : null;
+    const resolvedName =
+      existingProfile?.displayName ||
+      playerName.trim() ||
+      user.displayName ||
+      user.email?.split('@')[0] ||
+      'Peserta';
+    const resolvedPhoto =
+      existingProfile?.photoUrl ||
+      participantMeta.photoUrl ||
+      sanitizeParticipantPhotoUrl(user.photoURL);
+    const nextMeta = {
+      ...participantMeta,
+      photoUrl: resolvedPhoto,
+      school: existingProfile?.school ?? participantMeta.school,
+      phone: existingProfile?.phone ?? participantMeta.phone,
+      targetTrack: existingProfile?.targetTrack ?? participantMeta.targetTrack,
+      targetCampus: existingProfile?.targetCampus ?? participantMeta.targetCampus,
+      savedSkdSummary: existingProfile?.savedSkdSummary ?? participantMeta.savedSkdSummary,
+      authMethod: 'google' as const,
+    };
+    setPlayerName(resolvedName);
+    setParticipantMeta(nextMeta);
+    if (user.email) {
+      await saveUserProfileToFirestore(
+        user.uid,
+        user.email,
+        resolvedName,
+        existingProfile?.avatar || avatar,
+        nextMeta
+      );
+    }
+    setGoogleRecoveryMessage('');
+    setAuthModalOpen(false);
+    notify(`Berhasil masuk dengan Google sebagai ${resolvedName}.`, 'success');
+  };
+
+  const handleParticipantLogin = async () => {
+    const flow = await signInWithGoogleSmart('participant');
+    if (flow.status === 'success') {
+      await finalizeParticipantGoogleUser(flow.user);
+      return;
+    }
+    if (flow.status === 'redirecting') {
+      notify('Mengalihkan ke halaman login Google tanpa pop-up...', 'info');
+      return;
+    }
+    setGoogleRecoveryMessage(flow.reason.userMessage);
+    setAuthModalMode('login');
+    setAuthModalOpen(true);
+    notify(flow.reason.userMessage, 'warning');
   };
 
   const handlePasswordRegister = async (params: {
@@ -1198,6 +1368,7 @@ export function App() {
       savedSkdSummary: participantMeta.savedSkdSummary,
     });
     setParticipants((prev) => [created, ...prev.filter((p) => p.uid !== created.uid)]);
+    fetchPublicDirectory();
     setAuthModalOpen(false);
     notify(
       `🎉 Akun ${created.displayName} (@${created.username}) berhasil dibuat & masuk ke Database Peserta!`,
@@ -1314,7 +1485,37 @@ export function App() {
         avatar,
         nextMeta
       );
+      try {
+        const idToken = await firebaseUser.getIdToken();
+        const syncRes = await fetch('/api/participants/sync-google', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            idToken,
+            displayName: profile.displayName,
+            school: profile.school,
+            phone: profile.phone,
+            targetTrack: profile.targetTrack,
+            targetCampus: profile.targetCampus,
+            photoDataUrl:
+              profile.photoDataUrl && profile.photoDataUrl.startsWith('data:image/')
+                ? profile.photoDataUrl
+                : undefined,
+            photoUrl: nextPhotoUrl && !nextPhotoUrl.startsWith('data:image/') ? nextPhotoUrl : undefined,
+          }),
+        });
+        if (syncRes.ok) {
+          const syncJson = (await syncRes.json()) as { participant?: ParticipantRecord };
+          if (syncJson.participant?.photoUrl) {
+            setParticipantMeta((prev) => ({ ...prev, photoUrl: syncJson.participant!.photoUrl }));
+          }
+        }
+      } catch {
+        // ignore server sync error
+      }
     }
+    fetchPublicDirectory();
     notify('💾 Profil & foto peserta berhasil disimpan ke Database Peserta!', 'success');
   };
 
@@ -1328,6 +1529,7 @@ export function App() {
     targetTrack?: ParticipantTargetTrack;
     targetCampus?: string;
     photoDataUrl?: string;
+    clearPhoto?: boolean;
   }) => {
     const existing = payload.uid ? participants.find((p) => p.uid === payload.uid) : undefined;
     let savedRecord: ParticipantRecord | null = null;
@@ -1345,13 +1547,14 @@ export function App() {
           email: existing?.email,
           authMethod: existing?.authMethod || 'password',
           photoUrl:
-            payload.photoDataUrl && !payload.photoDataUrl.startsWith('data:image/')
+            !payload.clearPhoto && payload.photoDataUrl && !payload.photoDataUrl.startsWith('data:image/')
               ? payload.photoDataUrl
               : undefined,
           photoDataUrl:
-            payload.photoDataUrl && payload.photoDataUrl.startsWith('data:image/')
+            !payload.clearPhoto && payload.photoDataUrl && payload.photoDataUrl.startsWith('data:image/')
               ? payload.photoDataUrl
               : undefined,
+          clearPhoto: Boolean(payload.clearPhoto),
         }),
       });
       const data = (await res.json()) as {
@@ -1372,7 +1575,7 @@ export function App() {
         username: payload.username || existing?.username,
         email: existing?.email || `${fallbackUid}@peserta.hafizeducation.my.id`,
         displayName: payload.displayName,
-        photoUrl: payload.photoDataUrl || existing?.photoUrl,
+        photoUrl: payload.clearPhoto ? '' : payload.photoDataUrl || existing?.photoUrl,
         school: payload.school || '',
         phone: payload.phone || '',
         targetTrack: payload.targetTrack || 'utbk',
@@ -1396,13 +1599,19 @@ export function App() {
         setParticipantMeta((prev) => ({
           ...prev,
           username: savedRecord!.username || prev.username,
-          photoUrl: savedRecord!.photoUrl || prev.photoUrl,
+          photoUrl: savedRecord!.photoUrl ?? '',
           school: savedRecord!.school ?? prev.school,
           phone: savedRecord!.phone ?? prev.phone,
           targetTrack: savedRecord!.targetTrack ?? prev.targetTrack,
           targetCampus: savedRecord!.targetCampus ?? prev.targetCampus,
         }));
+      } else if (firebaseUser && firebaseUser.uid === savedRecord.uid) {
+        setParticipantMeta((prev) => ({
+          ...prev,
+          photoUrl: savedRecord!.photoUrl ?? '',
+        }));
       }
+      fetchPublicDirectory();
       notify(`✅ Profil & foto "${savedRecord.displayName}" tersimpan di Database Peserta!`, 'success');
     }
   };
@@ -1785,7 +1994,7 @@ export function App() {
       });
     }
 
-    const uid = firebaseUser?.uid || 'current-user';
+    const uid = activeParticipantUid;
     const others = roomLeaderboardRaw.filter((e) => e.id !== uid && !e.isCurrentUser);
     const entries: LeaderboardEntry[] = [
       {
@@ -1799,9 +2008,18 @@ export function App() {
         cheatCount,
         status: 'finished',
         isCurrentUser: true,
+        photoUrl: activeParticipantPhotoUrl || undefined,
         timestamp: nowIso,
       },
-      ...others,
+      ...others.map((entry) => {
+        if (entry.photoUrl) return entry;
+        const dir =
+          publicDirectory.find((p) => p.uid === entry.id && p.photoUrl) ||
+          publicDirectory.find(
+            (p) => p.photoUrl && p.displayName.trim().toLowerCase() === entry.name.trim().toLowerCase()
+          );
+        return dir?.photoUrl ? { ...entry, photoUrl: dir.photoUrl } : entry;
+      }),
     ];
 
     const ranked = rankLeaderboard(entries);
@@ -1976,46 +2194,53 @@ export function App() {
   };
 
   const handleGoogleAdminLogin = async () => {
-    try {
-      const user = await signInAdminWithGoogle();
-      if (isVerifiedAdminUser(user)) {
-        setAdminAuthenticated(true);
-        setAdminNavUnlocked(true);
-        setAdminGateOpen(false);
-        try {
-          const [sessionToken, idToken] = await Promise.all([
-            fetchCsrfToken(),
-            user.getIdToken(),
-          ]);
-          const authRes = await fetch('/api/admin/authorize', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Hafiz-Token': sessionToken,
-            },
-            body: JSON.stringify({ method: 'google', idToken }),
-          });
-          const authJson = (await authRes.json()) as { ok?: boolean; adminToken?: string };
-          if (authRes.ok && authJson.adminToken) {
-            adminTokenRef.current = authJson.adminToken;
-          }
-        } catch {
-          // continue even if token exchange skipped
+    setAdminGoogleRecoveryMessage('');
+    const flow = await signInWithGoogleSmart('admin');
+    if (flow.status === 'redirecting') {
+      notify('Mengalihkan ke halaman login Google Admin tanpa pop-up...', 'info');
+      return;
+    }
+    if (flow.status === 'recovery-needed') {
+      setAdminGoogleRecoveryMessage(flow.reason.userMessage);
+      notify(flow.reason.userMessage, 'warning');
+      return;
+    }
+    const user = flow.user;
+    if (isVerifiedAdminUser(user)) {
+      setAdminAuthenticated(true);
+      setAdminNavUnlocked(true);
+      setAdminGateOpen(false);
+      setAdminGoogleRecoveryMessage('');
+      try {
+        const [sessionToken, idToken] = await Promise.all([
+          fetchCsrfToken(),
+          user.getIdToken(),
+        ]);
+        const authRes = await fetch('/api/admin/authorize', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Hafiz-Token': sessionToken,
+          },
+          body: JSON.stringify({ method: 'google', idToken }),
+        });
+        const authJson = (await authRes.json()) as { ok?: boolean; adminToken?: string };
+        if (authRes.ok && authJson.adminToken) {
+          adminTokenRef.current = authJson.adminToken;
         }
-        setView('admin');
-        notify(`🛡️ Login Google Admin berhasil (${user.email})! Akses penuh diaktifkan.`, 'success');
-        await syncAdminCloudData(true);
-      } else {
-        await signOutAdmin();
-        notify(
-          '⛔ Akun Google ini bukan Admin terdaftar. Hanya email Admin resmi yang diizinkan.',
-          'error'
-        );
+      } catch {
+        // continue even if token exchange skipped
       }
-    } catch (err) {
-      console.warn('Google Admin sign-in cancelled/failed:', err);
-      notify('Login Google dibatalkan atau pop-up terblokir oleh browser.', 'warning');
+      setView('admin');
+      notify(`🛡️ Login Google Admin berhasil (${user.email})! Akses penuh diaktifkan.`, 'success');
+      await syncAdminCloudData(true);
+    } else {
+      await signOutAdmin();
+      notify(
+        '⛔ Akun Google ini bukan Admin terdaftar. Hanya email Admin resmi yang diizinkan.',
+        'error'
+      );
     }
   };
 
@@ -2432,6 +2657,7 @@ export function App() {
             participantPhotoUrl={activeParticipantPhotoUrl}
             participantSchool={participantMeta.school}
             participantTargetCampus={participantMeta.targetCampus}
+            publicDirectory={publicDirectory}
             userHistory={userHistory}
             onParticipantLogin={handleParticipantLogin}
             onOpenParticipantAuth={handleOpenParticipantAuth}
@@ -2823,6 +3049,7 @@ export function App() {
                     await deleteParticipantFromFirestore(participant.uid).catch(() => {});
                   }
                   setParticipants((prev) => prev.filter((item) => item.uid !== participant.uid));
+                  fetchPublicDirectory();
                   notify(`🗑️ Peserta "${participant.displayName}" berhasil dihapus.`, 'info');
                 },
               })
@@ -2846,6 +3073,7 @@ export function App() {
                     await clearAllParticipantsFromFirestore(targetUids).catch(() => {});
                   }
                   setParticipants([]);
+                  setPublicDirectory([]);
                   notify('🗑️ Seluruh Database Peserta berhasil dikosongkan.', 'info');
                 },
               })
@@ -2855,12 +3083,17 @@ export function App() {
         )}
       </main>
 
-      <footer className="relative z-10 border-t border-sky-400/20 bg-slate-950/80 backdrop-blur-md py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
-          <p>
-            © {new Date().getFullYear()} <span className="text-sky-300 font-semibold">{siteSettings.brandName}</span> · Didirikan oleh M. Hafiz Azzikri (MAN Insan Cendekia Jambi)
-          </p>
-          <div className="flex flex-wrap items-center gap-5">
+      <footer className="relative z-10 border-t border-sky-400/15 bg-[#060f22]/92 backdrop-blur-xl py-8 mt-14">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 text-xs text-slate-300">
+          <div className="space-y-1">
+            <p className="text-slate-200">
+              © {new Date().getFullYear()} <span className="text-white font-semibold">{siteSettings.brandName}</span> · <span className="font-mono text-sky-300">hafizeducation.my.id</span>
+            </p>
+            <p className="text-[11px] text-slate-400">
+              Didirikan oleh M. Hafiz Azzikri · MAN Insan Cendekia Jambi
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
             <button
               type="button"
               onClick={() => {
@@ -2868,7 +3101,7 @@ export function App() {
                 setView('portals');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="hover:text-sky-300 transition"
+              className="hover:text-sky-200 transition"
             >
               Portal ASAS XII
             </button>
@@ -2879,7 +3112,7 @@ export function App() {
                 setView('portals');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="hover:text-sky-300 transition"
+              className="hover:text-white transition"
             >
               Try Out UTBK
             </button>
@@ -2890,7 +3123,7 @@ export function App() {
                 setView('portals');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="hover:text-sky-300 transition"
+              className="hover:text-white transition"
             >
               Try Out TKA
             </button>
@@ -2901,7 +3134,7 @@ export function App() {
                 setView('portals');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="hover:text-sky-300 transition"
+              className="hover:text-white transition"
             >
               Modul TKA
             </button>
@@ -2912,7 +3145,7 @@ export function App() {
                 setView('portals');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="hover:text-sky-300 transition"
+              className="hover:text-white transition"
             >
               Materi X–XII
             </button>
@@ -2924,7 +3157,7 @@ export function App() {
                   document.getElementById('about-hafiz-education')?.scrollIntoView({ behavior: 'smooth' });
                 }, 60);
               }}
-              className="hover:text-sky-300 transition"
+              className="hover:text-white transition"
             >
               Tentang Founder
             </button>
@@ -2932,7 +3165,7 @@ export function App() {
               href="https://instagram.com/hafiz_education"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 font-semibold text-pink-300 hover:text-pink-200 transition"
+              className="inline-flex items-center gap-1.5 font-semibold text-sky-200 hover:text-amber-300 transition"
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
@@ -2998,7 +3231,12 @@ export function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onLogout={handleParticipantLogout}
-        onClose={() => setAuthModalOpen(false)}
+        googleRecoveryMessage={googleRecoveryMessage}
+        onClearGoogleRecovery={() => setGoogleRecoveryMessage('')}
+        onClose={() => {
+          setGoogleRecoveryMessage('');
+          setAuthModalOpen(false);
+        }}
       />
 
       <TutorialModal open={tutorialOpen} onClose={() => setTutorialOpen(false)} />
@@ -3010,11 +3248,15 @@ export function App() {
         isGoogleAdminVerified={isGoogleAdminVerified}
         onVerify={handleVerifyAdmin}
         onGoogleAdminLogin={handleGoogleAdminLogin}
+        googleRecoveryMessage={adminGoogleRecoveryMessage}
         onCopyPassword={() => {
           navigator.clipboard?.writeText(systemPw.plain).catch(() => {});
           notify('📋 Password sistem disalin ke clipboard.', 'info');
         }}
-        onClose={() => setAdminGateOpen(false)}
+        onClose={() => {
+          setAdminGoogleRecoveryMessage('');
+          setAdminGateOpen(false);
+        }}
       />
 
       <AdminConfirmModal
@@ -3079,8 +3321,8 @@ export function App() {
               : t.type === 'error'
                 ? 'bg-rose-950/95 border-rose-400/50 text-rose-200'
                 : t.type === 'warning'
-                  ? 'bg-amber-950/95 border-amber-400/50 text-amber-200'
-                  : 'bg-slate-900/95 border-indigo-400/50 text-slate-100';
+                  ? 'bg-[#0b1b3a]/95 border-amber-400/50 text-amber-200'
+                  : 'bg-[#0b1b3a]/95 border-sky-400/40 text-sky-100';
           return (
             <div
               key={t.id}
