@@ -16,6 +16,8 @@ export default defineConfig(() => {
           'favicon.ico',
           'apple-touch-icon.png',
           'icon.svg',
+          'robots.txt',
+          'sitemap.xml',
           '.well-known/assetlinks.json',
           '.well-known/apple-app-site-association',
           '.well-known/microsoft-identity-association.json',

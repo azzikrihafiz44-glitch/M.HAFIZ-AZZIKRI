@@ -10,6 +10,7 @@ interface AdminGateModalProps {
   onCopyPassword: () => void;
   onClose: () => void;
   googleRecoveryMessage?: string;
+  firebaseProjectId?: string;
 }
 
 export const AdminGateModal: React.FC<AdminGateModalProps> = ({
@@ -20,6 +21,7 @@ export const AdminGateModal: React.FC<AdminGateModalProps> = ({
   onGoogleAdminLogin,
   onClose,
   googleRecoveryMessage = '',
+  firebaseProjectId = '',
 }) => {
   const [passwordInput, setPasswordInput] = useState('');
   const [signingIn, setSigningIn] = useState(false);
@@ -97,19 +99,52 @@ export const AdminGateModal: React.FC<AdminGateModalProps> = ({
                 : 'Login dengan Akun Google Admin'}
           </button>
 
-          {googleRecoveryMessage && (
-            <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-400/40 space-y-2 text-xs">
-              <p className="text-amber-200 leading-relaxed">{googleRecoveryMessage}</p>
-              <a
-                href={typeof window !== 'undefined' ? window.location.href : '/'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-gold px-3 py-1.5 rounded-lg text-xs font-bold inline-block"
-              >
-                Buka di Tab Baru (Anti Blokir Pop-up) →
-              </a>
-            </div>
-          )}
+          {googleRecoveryMessage && (() => {
+            const isDomainIssue =
+              googleRecoveryMessage.includes('Authorized Domains') ||
+              googleRecoveryMessage.includes('diotorisasi');
+            const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+            const firebaseSettingsUrl = firebaseProjectId
+              ? `https://console.firebase.google.com/project/${firebaseProjectId}/authentication/settings`
+              : 'https://console.firebase.google.com/';
+            return (
+              <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-400/40 space-y-2 text-xs">
+                <p className="text-amber-200 leading-relaxed">{googleRecoveryMessage}</p>
+                <div className="flex flex-wrap gap-2">
+                  {isDomainIssue && currentHost && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(currentHost).catch(() => {});
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-200 text-xs font-bold transition"
+                    >
+                      Salin Domain ({currentHost})
+                    </button>
+                  )}
+                  {isDomainIssue ? (
+                    <a
+                      href={firebaseSettingsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-gold px-3 py-1.5 rounded-lg text-xs font-bold inline-block"
+                    >
+                      Tambah Domain di Firebase Console →
+                    </a>
+                  ) : (
+                    <a
+                      href={typeof window !== 'undefined' ? window.location.href : '/'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-gold px-3 py-1.5 rounded-lg text-xs font-bold inline-block"
+                    >
+                      Buka di Tab Baru (Anti Blokir Pop-up) →
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">

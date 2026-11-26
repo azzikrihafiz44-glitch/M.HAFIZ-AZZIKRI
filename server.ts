@@ -385,10 +385,34 @@ async function startServer() {
 
   app.use(express.json({ limit: '35mb' }));
 
+  const canonicalOrigin = (process.env.APP_URL || 'https://hafizeducation.my.id').replace(/\/+$/, '');
+
+  app.get('/robots.txt', (_req, res) => {
+    res.type('text/plain; charset=utf-8').send(
+      `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${canonicalOrigin}/sitemap.xml\n`
+    );
+  });
+
+  app.get('/sitemap.xml', (_req, res) => {
+    const today = new Date().toISOString().slice(0, 10);
+    res.type('application/xml; charset=utf-8').send(
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+        `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+        `  <url>\n` +
+        `    <loc>${canonicalOrigin}/</loc>\n` +
+        `    <lastmod>${today}</lastmod>\n` +
+        `    <changefreq>daily</changefreq>\n` +
+        `    <priority>1.0</priority>\n` +
+        `  </url>\n` +
+        `</urlset>\n`
+    );
+  });
+
   const MATERIAL_UPLOADS_DIR = path.resolve(__dirname, 'uploads', 'materials');
   const QUESTION_IMAGES_DIR = path.resolve(__dirname, 'uploads', 'question-images');
   const PARTICIPANT_PHOTOS_DIR = path.resolve(__dirname, 'uploads', 'participant-photos');
   const PARTICIPANTS_DB_PATH = path.resolve(__dirname, 'uploads', 'participants-db.json');
+  const MATERIALS_DB_PATH = path.resolve(__dirname, 'uploads', 'materials-db.json');
   const ADMIN_AUTH_PATH = path.resolve(__dirname, 'uploads', 'admin-auth.json');
   const ROOM_STATUS_PATH = path.resolve(__dirname, 'uploads', 'room-status.json');
   const STORE_CONFIG_PATH = path.resolve(__dirname, 'uploads', 'store-config.json');
@@ -405,6 +429,60 @@ async function startServer() {
     shoeId: 'shoe-sneaker-sakura',
     accessoryId: 'acc-pita-pink',
   };
+
+  interface StoredMaterialEntry {
+    id: string;
+    portal: 'utbk' | 'sma' | 'tka' | 'kedinasan';
+    grade?: string;
+    tkaTrack?: string;
+    subject: string;
+    title: string;
+    subtitle: string;
+    readMinutes: number;
+    summary: string;
+    keyPoints: string[];
+    formulas: string[];
+    youtubeUrl?: string;
+    pptUrl?: string;
+    pptName?: string;
+    practiceQuestions: unknown[];
+    updatedAt?: string;
+  }
+
+  interface StoredMaterialsDb {
+    materials: StoredMaterialEntry[];
+    deletedIds: string[];
+    deletedRoomCodes: string[];
+  }
+
+  function readMaterialsDb(): StoredMaterialsDb {
+    try {
+      if (!fs.existsSync(MATERIALS_DB_PATH)) {
+        return { materials: [], deletedIds: [], deletedRoomCodes: [] };
+      }
+      const parsed = JSON.parse(fs.readFileSync(MATERIALS_DB_PATH, 'utf-8')) as Partial<StoredMaterialsDb>;
+      return {
+        materials: Array.isArray(parsed.materials) ? parsed.materials : [],
+        deletedIds: Array.isArray(parsed.deletedIds)
+          ? parsed.deletedIds.filter((id): id is string => typeof id === 'string')
+          : [],
+        deletedRoomCodes: Array.isArray(parsed.deletedRoomCodes)
+          ? parsed.deletedRoomCodes.filter((c): c is string => typeof c === 'string')
+          : [],
+      };
+    } catch {
+      return { materials: [], deletedIds: [], deletedRoomCodes: [] };
+    }
+  }
+
+  function writeMaterialsDb(db: StoredMaterialsDb): void {
+    const clean: StoredMaterialsDb = {
+      materials: db.materials.slice(0, 500),
+      deletedIds: Array.from(new Set(db.deletedIds)).slice(-500),
+      deletedRoomCodes: Array.from(new Set(db.deletedRoomCodes)).slice(-300),
+    };
+    fs.writeFileSync(MATERIALS_DB_PATH, JSON.stringify(clean, null, 2));
+  }
 
   function readParticipantsDb(): StoredParticipantRecord[] {
     try {
@@ -458,9 +536,10 @@ async function startServer() {
   function resolveAuthorizedParticipantUid(req: express.Request): string | null {
     const authHeader = String(req.headers.authorization || '');
     const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const customHeaderToken = String(req.headers['x-hafiz-participant-token'] || '').trim();
     const cookies = parseCookies(req);
     const cookieToken = cookies['hafiz_part_sess'] || '';
-    for (const candidate of [bearer, cookieToken]) {
+    for (const candidate of [bearer, customHeaderToken, cookieToken]) {
       const claims = verifySignedClaimToken(candidate);
       if (claims && claims.role === 'participant' && typeof claims.uid === 'string') {
         return claims.uid;
@@ -469,10 +548,21 @@ async function startServer() {
     return null;
   }
 
+  function getAuthorizedAdminClaims(req: express.Request): Record<string, unknown> | null {
+    const adminHeader = String(req.headers['x-hafiz-admin-token'] || '').trim();
+    const cookies = parseCookies(req);
+    const cookieToken = cookies['hafiz_admin_sess'] || '';
+    for (const candidate of [adminHeader, cookieToken]) {
+      const claims = verifySignedClaimToken(candidate);
+      if (claims && claims.role === 'admin') {
+        return claims;
+      }
+    }
+    return null;
+  }
+
   function isAuthorizedAdminRequest(req: express.Request): boolean {
-    const adminToken = String(req.headers['x-hafiz-admin-token'] || '');
-    const claims = verifySignedClaimToken(adminToken);
-    return Boolean(claims && claims.role === 'admin');
+    return Boolean(getAuthorizedAdminClaims(req));
   }
 
   function getFirebaseWebApiKey(): string {
@@ -571,7 +661,11 @@ async function startServer() {
         ) {
           const adminToken = createSignedClaimToken(
             { role: 'admin', uid: matched.localId || 'google-admin', email: matched.email },
-            4 * 60 * 60 * 1000
+            7 * 24 * 60 * 60 * 1000
+          );
+          res.setHeader(
+            'Set-Cookie',
+            buildSessionCookieHeader('hafiz_admin_sess', adminToken, 7 * 24 * 60 * 60, req)
           );
           res.json({ ok: true, adminToken });
           return;
@@ -609,7 +703,11 @@ async function startServer() {
         if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
           const adminToken = createSignedClaimToken(
             { role: 'admin', uid: 'studio-admin' },
-            4 * 60 * 60 * 1000
+            7 * 24 * 60 * 60 * 1000
+          );
+          res.setHeader(
+            'Set-Cookie',
+            buildSessionCookieHeader('hafiz_admin_sess', adminToken, 7 * 24 * 60 * 60, req)
           );
           res.json({ ok: true, adminToken });
           return;
@@ -619,6 +717,41 @@ async function startServer() {
 
     recordViolation(clientIp);
     res.status(403).json({ ok: false, error: 'Kredensial Admin tidak valid.' });
+  });
+
+  app.get('/api/admin/me', (req, res) => {
+    if (!isTrustedSameOriginBrowserRequest(req)) {
+      res.status(403).json({ ok: false, error: 'Akses ditolak.' });
+      return;
+    }
+    const claims = getAuthorizedAdminClaims(req);
+    if (!claims) {
+      res.json({ ok: true, isAdmin: false });
+      return;
+    }
+    const refreshedToken = createSignedClaimToken(
+      {
+        role: 'admin',
+        uid: typeof claims.uid === 'string' ? claims.uid : 'studio-admin',
+        ...(typeof claims.email === 'string' ? { email: claims.email } : {}),
+      },
+      7 * 24 * 60 * 60 * 1000
+    );
+    res.setHeader(
+      'Set-Cookie',
+      buildSessionCookieHeader('hafiz_admin_sess', refreshedToken, 7 * 24 * 60 * 60, req)
+    );
+    res.json({
+      ok: true,
+      isAdmin: true,
+      method: claims.uid === 'studio-admin' ? 'studio' : 'google',
+      adminToken: refreshedToken,
+    });
+  });
+
+  app.post('/api/admin/logout', (req, res) => {
+    res.setHeader('Set-Cookie', buildSessionCookieHeader('hafiz_admin_sess', '', 0, req));
+    res.json({ ok: true });
   });
 
   // Update server Studio backup hash (admin-only or initial unconfigured setup)
@@ -668,6 +801,10 @@ async function startServer() {
     const refreshedToken = createSignedClaimToken(
       { role: 'participant', uid: found.uid, username: found.username },
       30 * 24 * 60 * 60 * 1000
+    );
+    res.setHeader(
+      'Set-Cookie',
+      buildSessionCookieHeader('hafiz_part_sess', refreshedToken, 30 * 24 * 60 * 60, req)
     );
     res.json({
       ok: true,
@@ -977,7 +1114,15 @@ async function startServer() {
         };
         records[idx] = updated;
         writeParticipantsDb(records);
-        res.json({ ok: true, participant: toPublicParticipant(updated) });
+        const sessionToken = createSignedClaimToken(
+          { role: 'participant', uid: updated.uid, username: updated.username },
+          30 * 24 * 60 * 60 * 1000
+        );
+        res.setHeader(
+          'Set-Cookie',
+          buildSessionCookieHeader('hafiz_part_sess', sessionToken, 30 * 24 * 60 * 60, req)
+        );
+        res.json({ ok: true, sessionToken, participant: toPublicParticipant(updated) });
         return;
       }
 
@@ -1010,7 +1155,15 @@ async function startServer() {
       };
       records.unshift(created);
       writeParticipantsDb(records);
-      res.json({ ok: true, participant: toPublicParticipant(created) });
+      const sessionToken = createSignedClaimToken(
+        { role: 'participant', uid: created.uid, username: created.username },
+        30 * 24 * 60 * 60 * 1000
+      );
+      res.setHeader(
+        'Set-Cookie',
+        buildSessionCookieHeader('hafiz_part_sess', sessionToken, 30 * 24 * 60 * 60, req)
+      );
+      res.json({ ok: true, sessionToken, participant: toPublicParticipant(created) });
     } catch {
       res.status(502).json({ ok: false, error: 'Gagal menyinkronkan profil Google.' });
     }
@@ -1663,7 +1816,7 @@ async function startServer() {
       return;
     }
     const targetPath = path.resolve(MATERIAL_UPLOADS_DIR, rawStored);
-    if (!targetPath.startsWith(MATERIAL_UPLOADS_DIR) || !fs.existsSync(targetPath)) {
+    if (!targetPath.startsWith(MATERIAL_UPLOADS_DIR + path.sep) || !fs.existsSync(targetPath)) {
       res.status(404).json({ ok: false, error: 'File materi tidak ditemukan.' });
       return;
     }
@@ -1686,10 +1839,11 @@ async function startServer() {
       '.csv': 'text/csv; charset=utf-8',
       '.zip': 'application/zip',
       '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
       '.mp3': 'audio/mpeg',
     };
     const contentType = MIME_BY_EXT[ext] || 'application/octet-stream';
-    const inlineSafeExts = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.txt', '.mp4', '.mp3']);
+    const inlineSafeExts = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.txt', '.mp4', '.webm', '.mp3']);
     const forceDownload = req.query.download === '1' || !inlineSafeExts.has(ext);
     const displayFileName = rawStored.replace(/^[a-z0-9]+-[a-f0-9]+-/, '') || rawStored;
 
@@ -1699,6 +1853,223 @@ async function startServer() {
       `${forceDownload ? 'attachment' : 'inline'}; filename="${displayFileName.replace(/"/g, '')}"`
     );
     res.sendFile(targetPath);
+  });
+
+  // Delete an uploaded material attachment (PPT, PDF, etc.) from server storage (Admin only)
+  app.delete('/api/material-files/:storedName', (req, res) => {
+    const clientIp = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown');
+    if (isIpBanned(clientIp) || !isTrustedSameOriginBrowserRequest(req)) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Akses ditolak.' });
+      return;
+    }
+    if (!verifySignedSessionToken(String(req.headers['x-hafiz-token'] || ''))) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Token sesi tidak valid.' });
+      return;
+    }
+    if (!isAuthorizedAdminRequest(req)) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Hanya Admin terverifikasi yang dapat menghapus file lampiran.' });
+      return;
+    }
+
+    const rawStored = String(req.params.storedName || '');
+    if (!/^[a-zA-Z0-9._-]{4,180}$/.test(rawStored) || rawStored.includes('..')) {
+      res.status(400).json({ ok: false, error: 'Nama file tidak valid.' });
+      return;
+    }
+    const targetPath = path.resolve(MATERIAL_UPLOADS_DIR, rawStored);
+    if (!targetPath.startsWith(MATERIAL_UPLOADS_DIR + path.sep)) {
+      res.status(400).json({ ok: false, error: 'Path file tidak valid.' });
+      return;
+    }
+
+    try {
+      if (fs.existsSync(targetPath)) {
+        fs.unlinkSync(targetPath);
+        res.json({ ok: true, deleted: true });
+      } else {
+        res.json({ ok: true, deleted: false });
+      }
+    } catch (error) {
+      console.error('Error deleting material file:', error);
+      res.status(500).json({ ok: false, error: 'Gagal menghapus file lampiran dari server.' });
+    }
+  });
+
+  // Persistent study materials & deletion tombstones across Kedinasan, TKA, UTBK, and Kelas X-XII
+  app.get('/api/materials', (_req, res) => {
+    const db = readMaterialsDb();
+    res.json({
+      ok: true,
+      materials: db.materials,
+      deletedIds: db.deletedIds,
+      deletedRoomCodes: db.deletedRoomCodes,
+    });
+  });
+
+  app.post('/api/materials', (req, res) => {
+    const clientIp = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown');
+    if (isIpBanned(clientIp) || !isTrustedSameOriginBrowserRequest(req)) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Akses ditolak.' });
+      return;
+    }
+    if (!verifySignedSessionToken(String(req.headers['x-hafiz-token'] || ''))) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Token sesi tidak valid.' });
+      return;
+    }
+    if (!isAuthorizedAdminRequest(req)) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Hanya Admin terverifikasi yang dapat menyimpan materi.' });
+      return;
+    }
+
+    const body = (req.body || {}) as { material?: Partial<StoredMaterialEntry> };
+    const mat = body.material;
+    if (!mat || typeof mat.id !== 'string' || !mat.id.trim() || typeof mat.title !== 'string' || !mat.title.trim()) {
+      res.status(400).json({ ok: false, error: 'Data materi tidak lengkap.' });
+      return;
+    }
+    const cleanPortal: StoredMaterialEntry['portal'] =
+      mat.portal === 'kedinasan' || mat.portal === 'tka' || mat.portal === 'sma' ? mat.portal : 'utbk';
+    const entry: StoredMaterialEntry = {
+      id: mat.id.trim().slice(0, 80),
+      portal: cleanPortal,
+      ...(typeof mat.grade === 'string' && mat.grade.trim() ? { grade: mat.grade.trim().slice(0, 12) } : {}),
+      ...(typeof mat.tkaTrack === 'string' && mat.tkaTrack.trim() ? { tkaTrack: mat.tkaTrack.trim().slice(0, 24) } : {}),
+      subject: String(mat.subject || 'Umum').trim().slice(0, 120),
+      title: mat.title.trim().slice(0, 180),
+      subtitle: String(mat.subtitle || '').trim().slice(0, 160),
+      readMinutes: Math.max(1, Math.min(240, Math.round(Number(mat.readMinutes ?? 5)))),
+      summary: String(mat.summary || '').slice(0, 40_000),
+      keyPoints: Array.isArray(mat.keyPoints)
+        ? mat.keyPoints.filter((p): p is string => typeof p === 'string').slice(0, 60)
+        : [],
+      formulas: Array.isArray(mat.formulas)
+        ? mat.formulas.filter((f): f is string => typeof f === 'string').slice(0, 60)
+        : [],
+      ...(typeof mat.youtubeUrl === 'string' && mat.youtubeUrl.trim()
+        ? { youtubeUrl: mat.youtubeUrl.trim().slice(0, 500) }
+        : {}),
+      ...(typeof mat.pptUrl === 'string' && mat.pptUrl.trim()
+        ? { pptUrl: mat.pptUrl.trim().slice(0, 800) }
+        : {}),
+      ...(typeof mat.pptName === 'string' && mat.pptName.trim()
+        ? { pptName: mat.pptName.trim().slice(0, 180) }
+        : {}),
+      practiceQuestions: Array.isArray(mat.practiceQuestions) ? mat.practiceQuestions.slice(0, 200) : [],
+      updatedAt: typeof mat.updatedAt === 'string' ? mat.updatedAt : new Date().toISOString(),
+    };
+
+    const db = readMaterialsDb();
+    const filtered = db.materials.filter((m) => m.id !== entry.id);
+    filtered.unshift(entry);
+    db.materials = filtered;
+    db.deletedIds = db.deletedIds.filter((id) => id !== entry.id);
+    writeMaterialsDb(db);
+    res.json({ ok: true, material: entry });
+  });
+
+  app.delete('/api/materials/:id', (req, res) => {
+    const clientIp = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown');
+    if (isIpBanned(clientIp) || !isTrustedSameOriginBrowserRequest(req)) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Akses ditolak.' });
+      return;
+    }
+    if (!verifySignedSessionToken(String(req.headers['x-hafiz-token'] || ''))) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Token sesi tidak valid.' });
+      return;
+    }
+    if (!isAuthorizedAdminRequest(req)) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Hanya Admin terverifikasi yang dapat menghapus materi.' });
+      return;
+    }
+    const targetId = String(req.params.id || '').trim().slice(0, 80);
+    if (!targetId) {
+      res.status(400).json({ ok: false, error: 'ID materi tidak valid.' });
+      return;
+    }
+    const db = readMaterialsDb();
+    db.materials = db.materials.filter((m) => m.id !== targetId);
+    if (!db.deletedIds.includes(targetId)) {
+      db.deletedIds.push(targetId);
+    }
+    writeMaterialsDb(db);
+    res.json({ ok: true, id: targetId });
+  });
+
+  app.post('/api/materials/bulk-delete', (req, res) => {
+    const clientIp = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown');
+    if (isIpBanned(clientIp) || !isTrustedSameOriginBrowserRequest(req)) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Akses ditolak.' });
+      return;
+    }
+    if (!verifySignedSessionToken(String(req.headers['x-hafiz-token'] || ''))) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Token sesi tidak valid.' });
+      return;
+    }
+    if (!isAuthorizedAdminRequest(req)) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Hanya Admin terverifikasi yang dapat menghapus materi.' });
+      return;
+    }
+    const body = (req.body || {}) as { materialIds?: unknown };
+    const ids = Array.isArray(body.materialIds)
+      ? body.materialIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0).map((id) => id.trim().slice(0, 80))
+      : [];
+    const idSet = new Set(ids);
+    const db = readMaterialsDb();
+    db.materials = db.materials.filter((m) => !idSet.has(m.id));
+    for (const id of ids) {
+      if (!db.deletedIds.includes(id)) db.deletedIds.push(id);
+    }
+    writeMaterialsDb(db);
+    res.json({ ok: true, deletedCount: ids.length });
+  });
+
+  app.post('/api/rooms/deleted', (req, res) => {
+    const clientIp = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown');
+    if (isIpBanned(clientIp) || !isTrustedSameOriginBrowserRequest(req)) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Akses ditolak.' });
+      return;
+    }
+    if (!verifySignedSessionToken(String(req.headers['x-hafiz-token'] || ''))) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Token sesi tidak valid.' });
+      return;
+    }
+    if (!isAuthorizedAdminRequest(req)) {
+      recordViolation(clientIp);
+      res.status(403).json({ ok: false, error: 'Hanya Admin terverifikasi yang dapat menghapus paket soal.' });
+      return;
+    }
+    const body = (req.body || {}) as { roomCode?: string; restore?: boolean };
+    const cleanCode = String(body.roomCode || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9_-]/g, '')
+      .slice(0, 24);
+    if (!cleanCode) {
+      res.status(400).json({ ok: false, error: 'Kode room tidak valid.' });
+      return;
+    }
+    const db = readMaterialsDb();
+    if (body.restore) {
+      db.deletedRoomCodes = db.deletedRoomCodes.filter((c) => c !== cleanCode);
+    } else if (!db.deletedRoomCodes.includes(cleanCode)) {
+      db.deletedRoomCodes.push(cleanCode);
+    }
+    writeMaterialsDb(db);
+    res.json({ ok: true, roomCode: cleanCode });
   });
 
   // Short-lived HMAC session token — strictly issued only to same-origin browser sessions

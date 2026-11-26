@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import {
+  browserLocalPersistence,
   createUserWithEmailAndPassword,
   getAuth,
   getRedirectResult,
@@ -7,6 +8,8 @@ import {
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
+  setPersistence,
+  signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
@@ -54,10 +57,13 @@ import {
 } from './utils/googlePopupAuth';
 
 export const ADMIN_EMAIL = 'jikikuki41@gmail.com';
+export const GOOGLE_OAUTH_CLIENT_ID = firebaseConfig.oAuthClientId || '';
+export const FIREBASE_PROJECT_ID = firebaseConfig.projectId || '';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence).catch(() => {});
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -145,6 +151,7 @@ export async function signInWithGoogleSmart(
         typeof navigator !== 'undefined' ? navigator.userAgent : ''
       ),
       elapsedMs: Date.now() - startedAt,
+      hostname: typeof window !== 'undefined' ? window.location.hostname : '',
     });
 
     if (decision.action === 'redirect-fallback') {
@@ -188,6 +195,12 @@ export async function consumeGoogleRedirectResult(): Promise<{
     console.warn('Google redirect sign-in check failed:', err);
   }
   return { user: null, role: null };
+}
+
+export async function signInWithGoogleIdToken(idToken: string): Promise<User> {
+  const credential = GoogleAuthProvider.credential(idToken);
+  const result = await signInWithCredential(auth, credential);
+  return result.user;
 }
 
 export async function signInAdminWithGoogle(): Promise<User> {
@@ -941,6 +954,7 @@ export interface SiteSettings {
   heroDescription: string;
   announcement: string;
   founderPhoto?: string;
+  introVideoUrl?: string;
   playStoreUrl?: string;
   appStoreUrl?: string;
   microsoftStoreUrl?: string;
@@ -951,6 +965,20 @@ export interface SiteSettings {
   microsoftAppGuid?: string;
 }
 
+function sanitizeIntroVideoUrl(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 500) return '';
+  if (trimmed.startsWith('/api/material-files/')) return trimmed;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'https:') return parsed.toString();
+  } catch {
+    return '';
+  }
+  return '';
+}
+
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   brandName: 'Hafiz Education',
   heroTagline: 'Lobi Kuis Interaktif · Live Teaching · Portal Belajar & E-Sertifikat',
@@ -959,6 +987,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     'Dandani avatar kamu dengan ratusan kostum kosmik, ikuti Live Teaching Zoom, jelajahi Portal Belajar UTBK, TKA, Kedinasan & Kelas X–XII, lalu raih Sertifikat Digital HD!',
   announcement: '',
   founderPhoto: '',
+  introVideoUrl: '',
   playStoreUrl: '',
   appStoreUrl: '',
   microsoftStoreUrl: '',
@@ -982,6 +1011,7 @@ export function subscribeToSiteSettings(onUpdate: (settings: SiteSettings) => vo
         heroDescription: sanitizeLegacySiteCopy(String(d.heroDescription ?? DEFAULT_SITE_SETTINGS.heroDescription)),
         announcement: sanitizeLegacySiteCopy(String(d.announcement ?? '')),
         founderPhoto: typeof d.founderPhoto === 'string' ? d.founderPhoto : '',
+        introVideoUrl: sanitizeIntroVideoUrl(d.introVideoUrl),
         playStoreUrl: sanitizeHttpsStoreUrl(d.playStoreUrl, ['play.google.com']),
         appStoreUrl: sanitizeHttpsStoreUrl(d.appStoreUrl, ['apps.apple.com', 'itunes.apple.com']),
         microsoftStoreUrl: sanitizeHttpsStoreUrl(d.microsoftStoreUrl, [
@@ -1028,6 +1058,7 @@ export async function saveSiteSettingsToFirestore(settings: SiteSettings): Promi
     if (typeof settings.founderPhoto === 'string' && settings.founderPhoto.length <= 390000) {
       payload.founderPhoto = settings.founderPhoto;
     }
+    payload.introVideoUrl = sanitizeIntroVideoUrl(settings.introVideoUrl);
     await setDoc(doc(db, 'settings', 'site'), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -1209,7 +1240,7 @@ export async function saveMaterialToFirestore(
       title: material.title.trim().slice(0, 200) || 'Materi Belajar',
       subtitle: (material.subtitle || '').trim().slice(0, 200),
       readMinutes: Math.max(1, Math.min(180, Math.round(material.readMinutes || 8))),
-      summary: material.summary.trim().slice(0, 4000) || 'Ringkasan materi pembelajaran.',
+      summary: material.summary.trim().slice(0, 4000),
       keyPoints: (material.keyPoints || [])
         .map((p) => p.trim().slice(0, 300))
         .filter(Boolean)

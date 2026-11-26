@@ -1,5 +1,28 @@
 [
   {
+    "uid": "B9yFmPmnmMNzDKGK3SZHa26sx1Q2",
+    "username": "m..hafiz.azzikri",
+    "displayName": "M. Hafiz Azzikri",
+    "email": "jikikuki41@gmail.com",
+    "photoUrl": "/api/participant-photos/pimg-mwxk1yld-869f88ef40ba.jpg",
+    "school": "MAN IC JAMBI",
+    "phone": "083834033423",
+    "targetTrack": "both",
+    "targetCampus": "UNAIR/Poltekpin",
+    "authMethod": "google",
+    "avatar": {
+      "characterId": "char-gadis-pita",
+      "skinColor": "#fde2cf",
+      "hairId": "hair-twintails-pink",
+      "topId": "top-sailor-pink",
+      "bottomId": "bot-rok-lipit-pink",
+      "shoeId": "shoe-sneaker-sakura",
+      "accessoryId": "acc-pita-pink"
+    },
+    "createdAt": "2026-11-25T13:50:55.216Z",
+    "updatedAt": "2026-11-26T13:35:20.167Z"
+  },
+  {
     "uid": "part-mwvjz1ko-ca2798fb",
     "username": "naufal.pratama",
     "displayName": "Naufal Pratama",

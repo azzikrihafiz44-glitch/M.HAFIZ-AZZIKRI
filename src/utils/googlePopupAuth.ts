@@ -58,15 +58,17 @@ export function resolveGoogleAuthFailureStrategy(params: {
   inIframe: boolean;
   inAppBrowser: boolean;
   elapsedMs: number;
+  hostname?: string;
 }): GoogleAuthFailureDecision {
   const code = extractFirebaseAuthCode(params.error);
+  const cleanHost = (params.hostname || '').trim();
 
   if (code === 'auth/unauthorized-domain') {
+    const hostLabel = cleanHost ? ` (${cleanHost})` : '';
     return {
       action: 'unauthorized-domain',
       code,
-      userMessage:
-        'Domain ini belum diotorisasi untuk pop-up Google. Gunakan login Nama & Kata Sandi atau buka halaman dari domain resmi.',
+      userMessage: `Domain${hostLabel} belum terdaftar di Authorized Domains Firebase. Gunakan login Nama & Kata Sandi di bawah, atau tambahkan domain ini di Firebase Authentication Settings.`,
     };
   }
 

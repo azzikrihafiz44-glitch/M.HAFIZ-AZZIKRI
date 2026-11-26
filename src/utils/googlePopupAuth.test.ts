@@ -65,7 +65,9 @@ describe('Google Popup Auth Resilience Logic', () => {
       inIframe: true,
       inAppBrowser: false,
       elapsedMs: 500,
+      hostname: 'hafizeducation.my.id',
     });
     assert.equal(domainDecision.action, 'unauthorized-domain');
+    assert.equal(domainDecision.userMessage.includes('hafizeducation.my.id'), true);
   });
 });

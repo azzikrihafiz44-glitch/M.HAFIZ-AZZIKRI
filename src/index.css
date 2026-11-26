@@ -628,18 +628,26 @@ html[data-theme='light'] .bg-zinc-900\/85,
 html[data-theme='light'] .bg-zinc-900\/80,
 html[data-theme='light'] .bg-zinc-900\/70,
 html[data-theme='light'] .bg-zinc-800,
+html[data-theme='light'] .bg-slate-900\/95,
+html[data-theme='light'] .bg-slate-900\/90,
 html[data-theme='light'] .bg-slate-900\/85,
 html[data-theme='light'] .bg-slate-900\/80,
 html[data-theme='light'] .bg-slate-900\/75,
 html[data-theme='light'] .bg-slate-900\/70,
 html[data-theme='light'] .bg-slate-900\/65,
 html[data-theme='light'] .bg-slate-900\/60,
+html[data-theme='light'] .bg-slate-950\/95,
 html[data-theme='light'] .bg-slate-950\/90,
+html[data-theme='light'] .bg-slate-950\/85,
 html[data-theme='light'] .bg-slate-950\/80,
+html[data-theme='light'] .bg-slate-950\/75,
 html[data-theme='light'] .bg-slate-950\/70,
 html[data-theme='light'] .bg-slate-950\/60,
 html[data-theme='light'] .bg-slate-900,
+html[data-theme='light'] .bg-slate-800\/90,
 html[data-theme='light'] .bg-slate-800\/85,
+html[data-theme='light'] .bg-slate-800\/80,
+html[data-theme='light'] .bg-slate-800\/75,
 html[data-theme='light'] .bg-slate-800,
 html[data-theme='light'] [class*='bg-[#0'] {
   background-color: #eef5ff !important;
@@ -652,10 +660,45 @@ html[data-theme='light'] [class*='from-[#0'] {
   color: #0b1936 !important;
 }
 
+html[data-theme='light'] .bg-sky-950\/90,
 html[data-theme='light'] .bg-sky-950\/80,
-html[data-theme='light'] .bg-teal-950\/75 {
+html[data-theme='light'] .bg-teal-950\/75,
+html[data-theme='light'] .bg-teal-950\/35,
+html[data-theme='light'] .bg-indigo-950\/60,
+html[data-theme='light'] .bg-indigo-950\/50,
+html[data-theme='light'] .bg-indigo-950\/35,
+html[data-theme='light'] .bg-indigo-950\/45,
+html[data-theme='light'] .bg-indigo-950\/20,
+html[data-theme='light'] .bg-purple-950\/50 {
   background-color: #e0f2fe !important;
   color: #0c4a6e !important;
+}
+
+html[data-theme='light'] .bg-emerald-950,
+html[data-theme='light'] .bg-emerald-950\/95,
+html[data-theme='light'] .bg-emerald-950\/90,
+html[data-theme='light'] .bg-emerald-950\/80,
+html[data-theme='light'] .bg-emerald-950\/60,
+html[data-theme='light'] .bg-emerald-950\/30 {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+}
+
+html[data-theme='light'] .bg-rose-950,
+html[data-theme='light'] .bg-rose-950\/95,
+html[data-theme='light'] .bg-rose-950\/90,
+html[data-theme='light'] .bg-rose-950\/80,
+html[data-theme='light'] .bg-rose-950\/75 {
+  background-color: #ffe4e6 !important;
+  color: #9f1239 !important;
+}
+
+html[data-theme='light'] .bg-amber-950,
+html[data-theme='light'] .bg-amber-950\/90,
+html[data-theme='light'] .bg-amber-950\/75,
+html[data-theme='light'] .bg-amber-950\/45 {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
 }
 
 html[data-theme='light'] .bg-white\/\[0\.02\],

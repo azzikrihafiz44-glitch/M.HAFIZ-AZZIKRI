@@ -26,6 +26,8 @@ import { BimbelCourseHub } from './BimbelCourseHub';
 import { UI_TRANSLATIONS, type UserWebLanguage } from '../utils/webSettings';
 import { PWAInstallButton } from './PWAInstallButton';
 
+import type { AutoGoogleConnectStatus } from '../utils/googleOneTap';
+
 interface LandingViewProps {
   siteSettings: SiteSettings;
   playerName: string;
@@ -33,6 +35,8 @@ interface LandingViewProps {
   avatar: AvatarConfig;
   activeSavedRoom: QuizRoom | null;
   userEmail: string | null;
+  isGoogleConnected?: boolean;
+  googleAutoConnectStatus?: AutoGoogleConnectStatus;
   participantPhotoUrl?: string;
   participantSchool?: string;
   participantTargetCampus?: string;
@@ -91,6 +95,8 @@ export const LandingView: React.FC<LandingViewProps> = ({
   playerName,
   roomCodeInput,
   userEmail,
+  isGoogleConnected = false,
+  googleAutoConnectStatus = 'idle',
   participantPhotoUrl = '',
   participantSchool = '',
   participantTargetCampus = '',
@@ -289,7 +295,11 @@ export const LandingView: React.FC<LandingViewProps> = ({
                     <div className="min-w-0 space-y-0.5">
                       <p className="font-semibold text-emerald-300 inline-flex items-center gap-1.5">
                         <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Akun Aktif · Database Peserta</span>
+                        <span>
+                          {isGoogleConnected
+                            ? 'Akun Google Terhubung · Database Peserta'
+                            : 'Akun Aktif · Database Peserta'}
+                        </span>
                       </p>
                       <p className="text-slate-100 truncate font-medium">
                         {playerName || userEmail}
@@ -328,8 +338,12 @@ export const LandingView: React.FC<LandingViewProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div className="text-xs">
                       <p className="font-bold text-white">Akun Peserta &amp; Simpan Progres</p>
-                      <p className="text-[11px] text-slate-300 mt-0.5">
-                        Daftar atau masuk instan dengan Akun Google maupun Nama &amp; Kata Sandi.
+                      <p data-testid="google-autoconnect-status" className="text-[11px] text-slate-300 mt-0.5">
+                        {googleAutoConnectStatus === 'connecting'
+                          ? 'Menghubungkan akun Google secara otomatis...'
+                          : googleAutoConnectStatus === 'prompted'
+                            ? 'Pilih akun Google pada jendela otomatis di sudut layar atau klik tombol di samping.'
+                            : 'Terhubung otomatis saat masuk, atau hubungkan manual dengan Google maupun Nama & Sandi.'}
                       </p>
                     </div>
                     {onParticipantLogin && (
@@ -627,10 +641,10 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 <span aria-hidden="true" className="pointer-events-none absolute -bottom-2 -right-2 w-4 h-4 border-b border-r border-amber-400/60 rounded-br-lg" />
                 <div className="w-40 h-48 sm:w-44 sm:h-56 rounded-2xl p-[1.5px] bg-gradient-to-br from-amber-300/80 via-sky-400/70 to-teal-400/70 shadow-2xl overflow-hidden relative">
                   <img
-                    src={siteSettings.founderPhoto || '/assets/aistudio/Favicon_0fd84ae5.png'}
+                    src={siteSettings.founderPhoto || '/assets/hafiz-logo.png'}
                     alt="Foto Founder Hafiz Education — M. Hafiz Azzikri"
-                    className={`w-full h-full rounded-[14px] bg-[#071124] ${
-                      siteSettings.founderPhoto ? 'object-cover object-top' : 'object-contain p-3'
+                    className={`w-full h-full rounded-[14px] bg-[#021d1c] ${
+                      siteSettings.founderPhoto ? 'object-cover object-top' : 'object-contain p-1.5'
                     }`}
                   />
                   <div aria-hidden="true" className="holo-scanline" />

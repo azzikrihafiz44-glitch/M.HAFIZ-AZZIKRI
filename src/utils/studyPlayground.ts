@@ -1,5 +1,24 @@
 export type SpeedMathDifficulty = 'santai' | 'utbk' | 'master';
 
+export const DEFAULT_SPEED_MATH_DURATION = 30;
+export const MIN_SPEED_MATH_DURATION = 10;
+export const MAX_SPEED_MATH_DURATION = 300;
+export const SPEED_MATH_DURATION_PRESETS = [15, 30, 45, 60, 90, 120] as const;
+
+export function clampSpeedMathDuration(seconds: number): number {
+  if (!Number.isFinite(seconds)) return DEFAULT_SPEED_MATH_DURATION;
+  const rounded = Math.round(seconds);
+  return Math.max(MIN_SPEED_MATH_DURATION, Math.min(MAX_SPEED_MATH_DURATION, rounded));
+}
+
+export function sanitizeSpeedMathDuration(raw: unknown): number {
+  const parsed = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_SPEED_MATH_DURATION;
+  }
+  return clampSpeedMathDuration(parsed);
+}
+
 export interface SpeedMathQuestion {
   prompt: string;
   answer: number;

@@ -83,11 +83,11 @@ export const Header: React.FC<HeaderProps> = ({
           className="flex items-center gap-2.5 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 rounded-xl min-w-0 shrink"
           aria-label={`${brandName} — ${t.navHome}`}
         >
-          <span className="p-[1.5px] rounded-xl bg-gradient-to-br from-amber-300/80 via-sky-400/70 to-teal-400/70 group-hover:scale-105 transition shrink-0">
+          <span className="p-[1.5px] rounded-xl bg-gradient-to-br from-amber-300/90 via-emerald-400/75 to-teal-400/80 group-hover:scale-105 transition shrink-0">
             <img
-              src="/assets/aistudio/Favicon_0fd84ae5.png"
+              src="/assets/hafiz-logo.png"
               alt={`Logo ${brandName}`}
-              className="w-8 h-8 rounded-[10px] object-cover bg-[#071124] block"
+              className="w-8 h-8 rounded-[10px] object-cover bg-[#021d1c] block"
             />
           </span>
           <span className="font-display font-bold text-sm sm:text-[17px] tracking-tight text-gold-gradient whitespace-nowrap truncate">

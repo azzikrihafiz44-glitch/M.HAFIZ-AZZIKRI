@@ -6,6 +6,7 @@ import {
   Calculator,
   CalendarCheck2,
   Check,
+  Clock,
   Layers,
   Plus,
   RotateCw,
@@ -15,11 +16,16 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_FLASHCARDS,
+  MAX_SPEED_MATH_DURATION,
+  MIN_SPEED_MATH_DURATION,
+  SPEED_MATH_DURATION_PRESETS,
   calculateSkdPassingGrade,
   calculateSpeedMathPoints,
   calculateUtbkAverage,
+  clampSpeedMathDuration,
   computeDaysRemaining,
   generateSpeedMathQuestion,
+  sanitizeSpeedMathDuration,
   type QuickStudyNote,
   type SpeedMathDifficulty,
   type SpeedMathQuestion,
@@ -30,6 +36,7 @@ import {
 type PlaygroundTab = 'speedmath' | 'flashcards' | 'planner' | 'calculator';
 
 const STORAGE_SPEEDMATH_BEST = 'hafiz_speedmath_best_v1';
+const STORAGE_SPEEDMATH_DURATION = 'hafiz_speedmath_duration_v1';
 const STORAGE_CUSTOM_FLASHCARDS = 'hafiz_custom_flashcards_v1';
 const STORAGE_MASTERED_CARDS = 'hafiz_mastered_flashcards_v1';
 const STORAGE_EXAM_TARGETS = 'hafiz_exam_targets_v1';
@@ -55,9 +62,17 @@ export const CosmicPlaygroundHub: React.FC = () => {
 
   // --- Tab 1: Speed Math State ---
   const [difficulty, setDifficulty] = useState<SpeedMathDifficulty>('utbk');
+  const [selectedDuration, setSelectedDuration] = useState<number>(() => {
+    try {
+      return sanitizeSpeedMathDuration(localStorage.getItem(STORAGE_SPEEDMATH_DURATION));
+    } catch {
+      return 30;
+    }
+  });
+  const [roundDuration, setRoundDuration] = useState<number>(selectedDuration);
   const [mathRunning, setMathRunning] = useState(false);
   const [mathFinished, setMathFinished] = useState(false);
-  const [mathTimeLeft, setMathTimeLeft] = useState(30);
+  const [mathTimeLeft, setMathTimeLeft] = useState<number>(selectedDuration);
   const [mathScore, setMathScore] = useState(0);
   const [mathStreak, setMathStreak] = useState(0);
   const [mathCorrectCount, setMathCorrectCount] = useState(0);
@@ -169,16 +184,39 @@ export const CosmicPlaygroundHub: React.FC = () => {
     }
   }, [mathFinished, mathScore, bestScore]);
 
+  const handleSelectDuration = (nextSeconds: number) => {
+    if (mathRunning) return;
+    const clamped = clampSpeedMathDuration(nextSeconds);
+    setSelectedDuration(clamped);
+    setRoundDuration(clamped);
+    setMathTimeLeft(clamped);
+    setMathFinished(false);
+    try {
+      localStorage.setItem(STORAGE_SPEEDMATH_DURATION, String(clamped));
+    } catch {
+      // ignore storage quota
+    }
+  };
+
   const startSpeedMath = (nextDiff: SpeedMathDifficulty = difficulty) => {
+    const duration = clampSpeedMathDuration(selectedDuration);
     setDifficulty(nextDiff);
+    setRoundDuration(duration);
     setMathScore(0);
     setMathStreak(0);
     setMathCorrectCount(0);
-    setMathTimeLeft(30);
+    setMathTimeLeft(duration);
     setMathFeedback(null);
     setMathFinished(false);
     setMathQuestion(generateSpeedMathQuestion(nextDiff));
     setMathRunning(true);
+  };
+
+  const stopSpeedMath = () => {
+    setMathRunning(false);
+    setMathFinished(false);
+    setMathFeedback(null);
+    setMathTimeLeft(selectedDuration);
   };
 
   const handleSpeedMathAnswer = (choice: number) => {
@@ -396,9 +434,11 @@ export const CosmicPlaygroundHub: React.FC = () => {
         <div className="hero-glow-card holo-top-beam rounded-3xl p-6 sm:p-8 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="font-display text-xl font-bold text-white">Kilat Hitung 30 Detik</h3>
+              <h3 data-testid="speedmath-heading" className="font-display text-xl font-bold text-white">
+                Kilat Hitung {selectedDuration} Detik
+              </h3>
               <p className="text-xs text-slate-300 mt-0.5">
-                Pemanasan otak sebelum kuis — jaga combo beruntun untuk pengali skor hingga 4x!
+                Pemanasan otak sebelum kuis — atur waktu latihanmu &amp; jaga combo hingga 4x!
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-1.5 bg-[#071124]/90 p-1 rounded-xl border border-sky-400/20">
@@ -427,6 +467,80 @@ export const CosmicPlaygroundHub: React.FC = () => {
                   {item.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Custom Timer Duration Selector */}
+          <div className="p-4 rounded-2xl bg-[#09162e]/80 border border-sky-400/20 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs">
+              <Clock className="w-4 h-4 text-sky-300 shrink-0" aria-hidden="true" />
+              <span className="font-semibold text-sky-100">Atur Waktu:</span>
+              <span
+                data-testid="speedmath-selected-duration"
+                className="font-hud font-bold text-amber-300 tabular-nums"
+              >
+                {selectedDuration} detik
+              </span>
+              {mathRunning && (
+                <span className="text-[11px] text-slate-300">(terkunci saat ronde berjalan)</span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {SPEED_MATH_DURATION_PRESETS.map((sec) => (
+                  <button
+                    key={sec}
+                    type="button"
+                    data-testid={`speedmath-preset-${sec}`}
+                    disabled={mathRunning}
+                    onClick={() => handleSelectDuration(sec)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-hud font-bold border transition whitespace-nowrap ${
+                      selectedDuration === sec
+                        ? 'bg-sky-500 border-sky-300 text-white'
+                        : 'bg-[#071124]/90 border-sky-400/20 text-slate-300 hover:text-sky-200'
+                    } ${mathRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {sec}d
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 pl-1">
+                <label htmlFor="speedmath-duration-slider" className="sr-only">
+                  Geser durasi Kilat Hitung dalam detik
+                </label>
+                <input
+                  id="speedmath-duration-slider"
+                  data-testid="speedmath-duration-slider"
+                  type="range"
+                  min={MIN_SPEED_MATH_DURATION}
+                  max={180}
+                  step={5}
+                  disabled={mathRunning}
+                  value={Math.min(180, selectedDuration)}
+                  onChange={(e) => handleSelectDuration(Number(e.target.value))}
+                  className="w-24 sm:w-28 accent-amber-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <label htmlFor="speedmath-duration-input" className="sr-only">
+                  Masukkan durasi Kilat Hitung dalam detik
+                </label>
+                <input
+                  id="speedmath-duration-input"
+                  data-testid="speedmath-duration-input"
+                  type="number"
+                  min={MIN_SPEED_MATH_DURATION}
+                  max={MAX_SPEED_MATH_DURATION}
+                  disabled={mathRunning}
+                  value={selectedDuration}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    if (Number.isFinite(val)) handleSelectDuration(val);
+                  }}
+                  className="w-16 px-2 py-1 rounded-lg bg-[#071124]/90 border border-sky-400/25 text-xs font-hud font-bold text-white text-center focus:outline-none focus:border-sky-400 disabled:opacity-50"
+                />
+                <span className="text-[11px] text-slate-300">dtk</span>
+              </div>
             </div>
           </div>
 
@@ -477,7 +591,8 @@ export const CosmicPlaygroundHub: React.FC = () => {
                     Skor Akhir: {mathScore} Poin
                   </p>
                   <p className="text-xs text-slate-300">
-                    Kamu menjawab benar <strong className="text-amber-300">{mathCorrectCount}</strong> soal dalam 30 detik.
+                    Kamu menjawab benar <strong className="text-amber-300">{mathCorrectCount}</strong> soal dalam{' '}
+                    <strong className="text-sky-200">{roundDuration} detik</strong>.
                     {mathScore >= bestScore && mathScore > 0 ? ' Rekor pribadi baru!' : ''}
                   </p>
                 </>
@@ -487,8 +602,8 @@ export const CosmicPlaygroundHub: React.FC = () => {
                     Siap Uji Kecepatan Berhitung?
                   </p>
                   <p className="text-xs text-slate-300 max-w-md mx-auto">
-                    Jawab sebanyak mungkin soal hitungan, aljabar, dan pola bilangan dalam 30 detik.
-                    Pilih tingkat kesulitan lalu tekan mulai!
+                    Jawab sebanyak mungkin soal hitungan, aljabar, dan pola bilangan dalam {selectedDuration} detik.
+                    Pilih tingkat kesulitan &amp; durasi lalu tekan mulai!
                   </p>
                 </>
               )}
@@ -498,22 +613,32 @@ export const CosmicPlaygroundHub: React.FC = () => {
                 onClick={() => startSpeedMath(difficulty)}
                 className="btn-gold px-7 py-3 rounded-xl text-sm font-bold"
               >
-                {mathFinished ? 'Main Lagi' : 'Mulai Kilat Hitung'}
+                {mathFinished ? 'Main Lagi' : `Mulai (${selectedDuration} Detik)`}
               </button>
             </div>
           ) : (
             <div className="rounded-2xl bg-[#09162e]/85 border border-sky-400/30 p-6 space-y-5">
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between gap-2 text-xs">
                 <span className="text-sky-200 font-semibold">{mathQuestion.hint}</span>
-                {mathFeedback && (
-                  <span
-                    className={`font-bold ${
-                      mathFeedback === 'correct' ? 'text-emerald-300' : 'text-rose-300'
-                    }`}
+                <div className="flex items-center gap-3">
+                  {mathFeedback && (
+                    <span
+                      className={`font-bold ${
+                        mathFeedback === 'correct' ? 'text-emerald-300' : 'text-rose-300'
+                      }`}
+                    >
+                      {mathFeedback === 'correct' ? 'Tepat!' : 'Kurang tepat, lanjut!'}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    id="btn-stop-speedmath"
+                    onClick={stopSpeedMath}
+                    className="px-2.5 py-1 rounded-lg bg-[#071124]/90 hover:bg-rose-500/20 border border-sky-400/20 text-[11px] font-semibold text-slate-300 hover:text-rose-200 transition"
                   >
-                    {mathFeedback === 'correct' ? 'Tepat!' : 'Kurang tepat, lanjut!'}
-                  </span>
-                )}
+                    Akhiri / Atur Ulang
+                  </button>
+                </div>
               </div>
 
               <p

@@ -98,6 +98,8 @@ import {
 import type { User } from 'firebase/auth';
 import {
   DEFAULT_SITE_SETTINGS,
+  FIREBASE_PROJECT_ID,
+  GOOGLE_OAUTH_CLIENT_ID,
   adminUpsertParticipantToFirestore,
   clearAllHistoryFromFirestore,
   clearAllParticipantsFromFirestore,
@@ -128,6 +130,7 @@ import {
   deleteLiveSessionFromFirestore,
   saveLiveSessionToFirestore,
   consumeGoogleRedirectResult,
+  signInWithGoogleIdToken,
   signInWithGoogleSmart,
   signOutAdmin,
   subscribeToAllMaterials,
@@ -144,6 +147,95 @@ import {
   type ParticipantRecord,
   type SiteSettings,
 } from './firebase';
+import {
+  isManualGoogleLogoutActive,
+  loadGoogleIdentityServices,
+  markManualGoogleLogout,
+  shouldAttemptAutoGoogleConnect,
+  type AutoGoogleConnectStatus,
+} from './utils/googleOneTap';
+import {
+  extractLocalMaterialFileName,
+  mergeCloudAndPendingMaterials,
+  mergeCloudAndPendingRooms,
+  mergeServerCloudAndLocalMaterials,
+  removeMaterialById,
+  replaceMaterialInList,
+  stripMaterialPpt,
+} from './utils/materialManagement';
+import {
+  ADMIN_SESSION_TOKEN_KEY,
+  PARTICIPANT_SESSION_TOKEN_KEY,
+  buildAdminAuthHeaders,
+  buildParticipantAuthHeaders,
+  readStoredSessionToken,
+  writeStoredSessionToken,
+} from './utils/sessionPersistence';
+
+const UPLOADED_MATERIALS_STORAGE_KEY = 'hafiz_uploaded_materials_v1';
+const PENDING_LOCAL_MATERIALS_KEY = 'hafiz_pending_local_materials_v1';
+const DELETED_LOCAL_MATERIALS_KEY = 'hafiz_deleted_materials_v1';
+const DELETED_LOCAL_ROOMS_KEY = 'hafiz_deleted_rooms_v1';
+
+function readPendingLocalMaterialIds(): string[] {
+  try {
+    const raw = localStorage.getItem(PENDING_LOCAL_MATERIALS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePendingLocalMaterialIds(ids: string[]): void {
+  try {
+    localStorage.setItem(PENDING_LOCAL_MATERIALS_KEY, JSON.stringify(Array.from(new Set(ids))));
+  } catch {
+    // ignore storage quota
+  }
+}
+
+function readDeletedMaterialIds(): string[] {
+  try {
+    const raw = localStorage.getItem(DELETED_LOCAL_MATERIALS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDeletedMaterialIds(ids: string[]): void {
+  try {
+    localStorage.setItem(
+      DELETED_LOCAL_MATERIALS_KEY,
+      JSON.stringify(Array.from(new Set(ids)).slice(-500))
+    );
+  } catch {
+    // ignore storage quota
+  }
+}
+
+function readDeletedRoomCodes(): string[] {
+  try {
+    const raw = localStorage.getItem(DELETED_LOCAL_ROOMS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed) ? parsed.filter((c): c is string => typeof c === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDeletedRoomCodes(codes: string[]): void {
+  try {
+    localStorage.setItem(
+      DELETED_LOCAL_ROOMS_KEY,
+      JSON.stringify(Array.from(new Set(codes)).slice(-300))
+    );
+  } catch {
+    // ignore storage quota
+  }
+}
 
 async function fetchCsrfToken(): Promise<string> {
   const res = await fetch('/api/session-token', {
@@ -182,9 +274,14 @@ export function App() {
   const [adminGateOpen, setAdminGateOpen] = useState(false);
   const [googleScriptOpen, setGoogleScriptOpen] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [authHydrated, setAuthHydrated] = useState(false);
+  const [googleAutoConnectStatus, setGoogleAutoConnectStatus] =
+    useState<AutoGoogleConnectStatus>('idle');
+  const autoGoogleAttemptedRef = useRef(false);
+  const finalizeGoogleUserRef = useRef<(user: User) => Promise<void>>(async () => {});
   const [serverParticipant, setServerParticipant] = useState<ParticipantRecord | null>(null);
-  const adminTokenRef = useRef<string>('');
-  const participantTokenRef = useRef<string>('');
+  const adminTokenRef = useRef<string>(readStoredSessionToken(ADMIN_SESSION_TOKEN_KEY));
+  const participantTokenRef = useRef<string>(readStoredSessionToken(PARTICIPANT_SESSION_TOKEN_KEY));
   const [userHistory, setUserHistory] = useState<HistoryRecord[]>([]);
   const [participants, setParticipants] = useState<ParticipantRecord[]>([]);
   const [publicDirectory, setPublicDirectory] = useState<PublicParticipantProfile[]>([]);
@@ -317,7 +414,17 @@ export function App() {
   const [roomLeaderboardRaw, setRoomLeaderboardRaw] = useState<LeaderboardEntry[]>([]);
   const [countdownValue, setCountdownValue] = useState<number | 'go' | null>(null);
   const countdownTimerRef = useRef<number | null>(null);
-  const [siteSettings, setSiteSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
+    try {
+      const raw = localStorage.getItem('hafiz_edu_site_settings_v1');
+      if (raw) {
+        return { ...DEFAULT_SITE_SETTINGS, ...(JSON.parse(raw) as Partial<SiteSettings>) };
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return DEFAULT_SITE_SETTINGS;
+  });
 
   // Results State
   const [lastResult, setLastResult] = useState<{
@@ -417,26 +524,69 @@ export function App() {
       setIsSyncingCloud(true);
       try {
         const isGoogleAdmin = Boolean(firebaseUser && isVerifiedAdminUser(firebaseUser));
-        const [cloudRooms, cloudHistory, cloudParticipants, serverParticipants, cloudMaterials] =
-          await Promise.all([
-            listRoomsFromFirestore().catch(() => ({} as Record<string, QuizRoom>)),
-            isGoogleAdmin
-              ? listHistoryFromFirestore().catch(() => [] as HistoryRecord[])
-              : Promise.resolve([] as HistoryRecord[]),
-            isGoogleAdmin
-              ? listParticipantsFromFirestore().catch(() => [] as ParticipantRecord[])
-              : Promise.resolve([] as ParticipantRecord[]),
-            fetchServerParticipantsList(),
-            listMaterialsFromFirestore().catch(() => [] as StudyModule[]),
-          ]);
+        const [
+          cloudRooms,
+          cloudHistory,
+          cloudParticipants,
+          serverParticipants,
+          cloudMaterials,
+          serverMaterialsRes,
+        ] = await Promise.all([
+          listRoomsFromFirestore().catch(() => ({} as Record<string, QuizRoom>)),
+          isGoogleAdmin
+            ? listHistoryFromFirestore().catch(() => [] as HistoryRecord[])
+            : Promise.resolve([] as HistoryRecord[]),
+          isGoogleAdmin
+            ? listParticipantsFromFirestore().catch(() => [] as ParticipantRecord[])
+            : Promise.resolve([] as ParticipantRecord[]),
+          fetchServerParticipantsList(),
+          listMaterialsFromFirestore().catch(() => [] as StudyModule[]),
+          fetch('/api/materials', { method: 'GET', credentials: 'same-origin' })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null) as Promise<{
+            ok?: boolean;
+            materials?: StudyModule[];
+            deletedIds?: string[];
+            deletedRoomCodes?: string[];
+          } | null>,
+        ]);
+
+        const mergedDeletedIds = Array.from(
+          new Set([
+            ...readDeletedMaterialIds(),
+            ...(Array.isArray(serverMaterialsRes?.deletedIds) ? serverMaterialsRes!.deletedIds : []),
+          ])
+        );
+        writeDeletedMaterialIds(mergedDeletedIds);
+
+        const mergedDeletedRoomCodes = Array.from(
+          new Set([
+            ...readDeletedRoomCodes(),
+            ...(Array.isArray(serverMaterialsRes?.deletedRoomCodes)
+              ? serverMaterialsRes!.deletedRoomCodes
+              : []),
+          ])
+        );
+        writeDeletedRoomCodes(mergedDeletedRoomCodes);
+
+        const deletedMatSet = new Set(mergedDeletedIds);
+        const deletedRoomSet = new Set(mergedDeletedRoomCodes);
 
         // Auto-backup any locally uploaded rooms/materials not yet in Firestore Cloud
+        // and flush any pending cloud deletions when Google Admin is active
         const currentAdmin = firebaseUser;
         if (currentAdmin && isVerifiedAdminUser(currentAdmin)) {
+          for (const delRoomCode of mergedDeletedRoomCodes) {
+            if (cloudRooms[delRoomCode]) {
+              deleteRoomFromFirestore(delRoomCode).catch(() => {});
+              delete cloudRooms[delRoomCode];
+            }
+          }
           const localRooms = loadRooms();
           for (const localRoom of Object.values(localRooms)) {
             if (
               localRoom.code !== DEFAULT_ROOM.code &&
+              !deletedRoomSet.has(localRoom.code) &&
               !cloudRooms[localRoom.code] &&
               localRoom.questions.length > 0
             ) {
@@ -444,22 +594,36 @@ export function App() {
               cloudRooms[localRoom.code] = localRoom;
             }
           }
-          const cloudMatIds = new Set(cloudMaterials.map((m) => m.id));
-          for (const localMat of uploadedMaterials) {
-            if (!cloudMatIds.has(localMat.id)) {
-              saveMaterialToFirestore(localMat, currentAdmin.uid).catch(() => {});
-              cloudMaterials.push(localMat);
+          for (const cloudMat of cloudMaterials) {
+            if (deletedMatSet.has(cloudMat.id)) {
+              deleteMaterialFromFirestore(cloudMat.id).catch(() => {});
             }
           }
+          const cloudMatIds = new Set(cloudMaterials.map((m) => m.id));
+          const remainingPending: string[] = [];
+          for (const localMat of uploadedMaterials) {
+            if (!deletedMatSet.has(localMat.id) && !cloudMatIds.has(localMat.id)) {
+              try {
+                await saveMaterialToFirestore(localMat, currentAdmin.uid);
+                cloudMaterials.push(localMat);
+              } catch {
+                remainingPending.push(localMat.id);
+              }
+            }
+          }
+          writePendingLocalMaterialIds(remainingPending);
         }
 
-        if (Object.keys(cloudRooms).length > 0) {
-          setRooms((prev) => {
-            const merged = { ...prev, ...cloudRooms };
-            saveRooms(merged);
-            return merged;
-          });
-        }
+        setRooms((prev) => {
+          const merged = mergeCloudAndPendingRooms(
+            cloudRooms,
+            prev,
+            mergedDeletedRoomCodes,
+            DEFAULT_ROOM.code
+          );
+          saveRooms(merged);
+          return merged;
+        });
 
         // Merge Firestore & Server participant lists by UID
         const mergedByUid = new Map<string, ParticipantRecord>();
@@ -484,14 +648,25 @@ export function App() {
         );
         setParticipants(mergedParticipants);
 
-        if (cloudMaterials.length > 0) {
-          setUploadedMaterials(cloudMaterials);
+        setUploadedMaterials((prev) => {
+          const pendingIds = readPendingLocalMaterialIds();
+          const serverMats = Array.isArray(serverMaterialsRes?.materials)
+            ? serverMaterialsRes!.materials
+            : [];
+          const mergedMaterials = mergeServerCloudAndLocalMaterials({
+            serverMaterials: serverMats,
+            cloudMaterials,
+            localMaterials: prev,
+            pendingLocalIds: pendingIds,
+            deletedMaterialIds: mergedDeletedIds,
+          });
           try {
-            localStorage.setItem('hafiz_uploaded_materials_v1', JSON.stringify(cloudMaterials));
+            localStorage.setItem(UPLOADED_MATERIALS_STORAGE_KEY, JSON.stringify(mergedMaterials));
           } catch {
             // ignore storage quota
           }
-        }
+          return mergedMaterials;
+        });
 
         setHistory((prev) => {
           const byKey = new Map<string, HistoryRecord>();
@@ -525,12 +700,18 @@ export function App() {
     [fetchPublicDirectory, fetchServerParticipantsList, firebaseUser, notify, uploadedMaterials]
   );
 
-  // Restore non-Google participant session & fetch public participant photo directory on mount
+  // Restore participant session, admin session, public directory & server materials on mount
   useEffect(() => {
     fetchPublicDirectory();
+
+    const storedPartToken = readStoredSessionToken(PARTICIPANT_SESSION_TOKEN_KEY);
+    if (storedPartToken) {
+      participantTokenRef.current = storedPartToken;
+    }
     fetch('/api/participants/me', {
       method: 'GET',
       credentials: 'include',
+      headers: buildParticipantAuthHeaders(storedPartToken),
     })
       .then((res) => (res.ok ? res.json() : null))
       .then(
@@ -544,6 +725,7 @@ export function App() {
           if (data?.ok && data.participant) {
             if (data.sessionToken) {
               participantTokenRef.current = data.sessionToken;
+              writeStoredSessionToken(PARTICIPANT_SESSION_TOKEN_KEY, data.sessionToken);
             }
             const p = data.participant;
             setServerParticipant(p);
@@ -555,10 +737,85 @@ export function App() {
               phone: p.phone ?? prev.phone,
               targetTrack: p.targetTrack ?? prev.targetTrack,
               targetCampus: p.targetCampus ?? prev.targetCampus,
-              authMethod: 'password',
+              authMethod: p.authMethod || prev.authMethod || 'password',
               savedSkdSummary: p.savedSkdSummary ?? prev.savedSkdSummary,
             }));
+          } else if (data?.ok && !data.participant) {
+            participantTokenRef.current = '';
+            writeStoredSessionToken(PARTICIPANT_SESSION_TOKEN_KEY, '');
           }
+        }
+      )
+      .catch(() => {});
+
+    const storedAdminToken = readStoredSessionToken(ADMIN_SESSION_TOKEN_KEY);
+    if (storedAdminToken) {
+      adminTokenRef.current = storedAdminToken;
+    }
+    fetch('/api/admin/me', {
+      method: 'GET',
+      credentials: 'include',
+      headers: buildAdminAuthHeaders(storedAdminToken),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { ok?: boolean; isAdmin?: boolean; adminToken?: string } | null) => {
+        if (data?.ok && data.isAdmin && data.adminToken) {
+          adminTokenRef.current = data.adminToken;
+          writeStoredSessionToken(ADMIN_SESSION_TOKEN_KEY, data.adminToken);
+          setAdminAuthenticated(true);
+          setAdminNavUnlocked(true);
+        } else if (data?.ok && !data.isAdmin && storedAdminToken) {
+          adminTokenRef.current = '';
+          writeStoredSessionToken(ADMIN_SESSION_TOKEN_KEY, '');
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/materials', { method: 'GET', credentials: 'same-origin' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (
+          data: {
+            ok?: boolean;
+            materials?: StudyModule[];
+            deletedIds?: string[];
+            deletedRoomCodes?: string[];
+          } | null
+        ) => {
+          if (!data?.ok) return;
+          const nextDeletedIds = Array.from(
+            new Set([...readDeletedMaterialIds(), ...(data.deletedIds || [])])
+          );
+          writeDeletedMaterialIds(nextDeletedIds);
+
+          const nextDeletedRooms = Array.from(
+            new Set([...readDeletedRoomCodes(), ...(data.deletedRoomCodes || [])])
+          );
+          writeDeletedRoomCodes(nextDeletedRooms);
+
+          if (nextDeletedRooms.length > 0) {
+            setRooms((prev) => {
+              const filtered = mergeCloudAndPendingRooms({}, prev, nextDeletedRooms, DEFAULT_ROOM.code);
+              saveRooms(filtered);
+              return filtered;
+            });
+          }
+
+          setUploadedMaterials((prev) => {
+            const merged = mergeServerCloudAndLocalMaterials({
+              serverMaterials: data.materials || [],
+              cloudMaterials: [],
+              localMaterials: prev,
+              pendingLocalIds: prev.map((m) => m.id),
+              deletedMaterialIds: nextDeletedIds,
+            });
+            try {
+              localStorage.setItem(UPLOADED_MATERIALS_STORAGE_KEY, JSON.stringify(merged));
+            } catch {
+              // ignore quota
+            }
+            return merged;
+          });
         }
       )
       .catch(() => {});
@@ -585,7 +842,10 @@ export function App() {
       .catch(() => {});
     const unsub = onAuthChange(async (user) => {
       setFirebaseUser(user);
+      setAuthHydrated(true);
       if (user && user.email) {
+        markManualGoogleLogout(false);
+        setGoogleAutoConnectStatus('connected');
         // Load participant's personal profile, avatar, quiz history, published Try Out rooms, and study materials
         const [profile, personalHist, cloudRooms, cloudMaterials] = await Promise.all([
           loadUserProfileFromFirestore(user.uid),
@@ -625,25 +885,36 @@ export function App() {
         setUserHistory(personalHist);
         if (Object.keys(cloudRooms).length > 0) {
           setRooms((prev) => {
-            const merged = { ...prev, ...cloudRooms };
+            const merged = mergeCloudAndPendingRooms(
+              cloudRooms,
+              prev,
+              readDeletedRoomCodes(),
+              DEFAULT_ROOM.code
+            );
             saveRooms(merged);
             return merged;
           });
         }
-        if (cloudMaterials.length > 0) {
-          setUploadedMaterials(cloudMaterials);
+        setUploadedMaterials((prev) => {
+          const mergedMaterials = mergeCloudAndPendingMaterials(
+            cloudMaterials,
+            prev,
+            readPendingLocalMaterialIds(),
+            readDeletedMaterialIds()
+          );
           try {
-            localStorage.setItem('hafiz_uploaded_materials_v1', JSON.stringify(cloudMaterials));
+            localStorage.setItem(UPLOADED_MATERIALS_STORAGE_KEY, JSON.stringify(mergedMaterials));
           } catch {
             // ignore storage quota
           }
-        }
+          return mergedMaterials;
+        });
         // Sync Google user into Database Peserta so Admin & fellow participants can see/manage their photo
         try {
           const idToken = await user.getIdToken();
           const syncRes = await fetch('/api/participants/sync-google', {
             method: 'POST',
-            credentials: 'same-origin',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               idToken,
@@ -658,8 +929,13 @@ export function App() {
           if (syncRes.ok) {
             const syncJson = (await syncRes.json()) as {
               ok?: boolean;
+              sessionToken?: string;
               participant?: ParticipantRecord;
             };
+            if (syncJson.sessionToken) {
+              participantTokenRef.current = syncJson.sessionToken;
+              writeStoredSessionToken(PARTICIPANT_SESSION_TOKEN_KEY, syncJson.sessionToken);
+            }
             if (syncJson.participant?.photoUrl) {
               setParticipantMeta((prev) => ({
                 ...prev,
@@ -677,6 +953,7 @@ export function App() {
 
       if (isVerifiedAdminUser(user) && user) {
         setAdminAuthenticated(true);
+        setAdminNavUnlocked(true);
         try {
           const [sessionToken, idToken] = await Promise.all([
             fetchCsrfToken(),
@@ -684,7 +961,7 @@ export function App() {
           ]);
           const authRes = await fetch('/api/admin/authorize', {
             method: 'POST',
-            credentials: 'same-origin',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
               'X-Hafiz-Token': sessionToken,
@@ -694,6 +971,7 @@ export function App() {
           const authJson = (await authRes.json()) as { ok?: boolean; adminToken?: string };
           if (authRes.ok && authJson.adminToken) {
             adminTokenRef.current = authJson.adminToken;
+            writeStoredSessionToken(ADMIN_SESSION_TOKEN_KEY, authJson.adminToken);
           }
         } catch {
           // continue even if server token exchange failed
@@ -704,23 +982,100 @@ export function App() {
     return () => unsub();
   }, [syncAdminCloudData]);
 
+  // Automatically connect / prompt Google account (One Tap + auto_select) when entering web without active session
+  useEffect(() => {
+    if (!authHydrated) return;
+    if (firebaseUser || serverParticipant) {
+      setGoogleAutoConnectStatus('connected');
+      return;
+    }
+    if (autoGoogleAttemptedRef.current) return;
+    if (
+      !shouldAttemptAutoGoogleConnect({
+        hasCurrentUser: Boolean(firebaseUser || serverParticipant),
+        manuallySignedOut: isManualGoogleLogoutActive(),
+        clientId: GOOGLE_OAUTH_CLIENT_ID,
+        isAutomatedBrowser: typeof navigator !== 'undefined' && Boolean(navigator.webdriver),
+      })
+    ) {
+      setGoogleAutoConnectStatus('ready-manual');
+      return;
+    }
+
+    autoGoogleAttemptedRef.current = true;
+    let cancelled = false;
+    setGoogleAutoConnectStatus('connecting');
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const gsi = await loadGoogleIdentityServices();
+        if (cancelled) return;
+        if (!gsi) {
+          setGoogleAutoConnectStatus('ready-manual');
+          return;
+        }
+        gsi.initialize({
+          client_id: GOOGLE_OAUTH_CLIENT_ID,
+          auto_select: true,
+          cancel_on_tap_outside: false,
+          itp_support: true,
+          use_fedcm_for_prompt: true,
+          callback: async (response) => {
+            if (!response?.credential || cancelled) return;
+            try {
+              const user = await signInWithGoogleIdToken(response.credential);
+              markManualGoogleLogout(false);
+              setGoogleAutoConnectStatus('connected');
+              await finalizeGoogleUserRef.current(user);
+            } catch {
+              setGoogleAutoConnectStatus('ready-manual');
+            }
+          },
+        });
+        setGoogleAutoConnectStatus('prompted');
+        gsi.prompt();
+      } catch {
+        if (!cancelled) {
+          setGoogleAutoConnectStatus('ready-manual');
+        }
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [authHydrated, firebaseUser, serverParticipant]);
+
   // Real-time web database sync for ALL visitors (rooms: Try Out, ASAS XII, Kuis & study materials)
   useEffect(() => {
     const unsubRooms = subscribeToAllRooms((cloudRooms) => {
       setRooms((prev) => {
-        const merged = { ...prev, ...cloudRooms };
-        delete merged[DEFAULT_ROOM.code];
+        const merged = mergeCloudAndPendingRooms(
+          cloudRooms,
+          prev,
+          readDeletedRoomCodes(),
+          DEFAULT_ROOM.code
+        );
         saveRooms(merged);
         return merged;
       });
     });
     const unsubMaterials = subscribeToAllMaterials((cloudMaterials) => {
-      setUploadedMaterials(cloudMaterials);
-      try {
-        localStorage.setItem('hafiz_uploaded_materials_v1', JSON.stringify(cloudMaterials));
-      } catch {
-        // ignore storage quota
-      }
+      setUploadedMaterials((prev) => {
+        const mergedMaterials = mergeCloudAndPendingMaterials(
+          cloudMaterials,
+          prev,
+          readPendingLocalMaterialIds(),
+          readDeletedMaterialIds()
+        );
+        try {
+          localStorage.setItem(UPLOADED_MATERIALS_STORAGE_KEY, JSON.stringify(mergedMaterials));
+        } catch {
+          // ignore storage quota
+        }
+        return mergedMaterials;
+      });
     });
     const unsubLive = subscribeToLiveSessions((cloudSessions) => {
       setLiveSessions(cloudSessions);
@@ -1112,7 +1467,7 @@ export function App() {
   useEffect(() => {
     const unsub = subscribeToSiteSettings((next) => {
       setSiteSettings(next);
-      document.title = `${next.brandName} - Platform Kuis Interaktif & Sertifikat Digital`;
+      document.title = `${next.brandName} – Bimbel UTBK, Kedinasan & Kuis Interaktif`;
     });
     return () => unsub();
   }, []);
@@ -1196,7 +1551,12 @@ export function App() {
 
   const handleSaveSiteSettings = async (next: SiteSettings) => {
     setSiteSettings(next);
-    document.title = `${next.brandName} - Platform Kuis Interaktif & Sertifikat Digital`;
+    try {
+      localStorage.setItem('hafiz_edu_site_settings_v1', JSON.stringify(next));
+    } catch {
+      // ignore storage errors
+    }
+    document.title = `${next.brandName} – Bimbel UTBK, Kedinasan & Kuis Interaktif`;
     if (isGoogleAdminVerified) {
       try {
         await saveSiteSettingsToFirestore(next);
@@ -1205,7 +1565,7 @@ export function App() {
         notify('⚠️ Gagal menyimpan ke Cloud. Pastikan login Google Admin aktif.', 'error');
       }
     } else {
-      notify('⚠️ Login Google Admin diperlukan agar perubahan web tampil untuk semua orang.', 'warning');
+      notify('🌐 Pengaturan situs tersimpan di perangkat ini! Login Google Admin untuk publikasi live ke semua pengunjung.', 'info');
     }
   };
 
@@ -1258,6 +1618,7 @@ export function App() {
   const finalizeParticipantGoogleUser = async (user: User) => {
     if (isVerifiedAdminUser(user)) {
       setAdminAuthenticated(true);
+      setAdminNavUnlocked(true);
     }
     const existingProfile = user.uid ? await loadUserProfileFromFirestore(user.uid) : null;
     const resolvedName =
@@ -1296,9 +1657,13 @@ export function App() {
     notify(`Berhasil masuk dengan Google sebagai ${resolvedName}.`, 'success');
   };
 
+  finalizeGoogleUserRef.current = finalizeParticipantGoogleUser;
+
   const handleParticipantLogin = async () => {
+    markManualGoogleLogout(false);
     const flow = await signInWithGoogleSmart('participant');
     if (flow.status === 'success') {
+      setGoogleAutoConnectStatus('connected');
       await finalizeParticipantGoogleUser(flow.user);
       return;
     }
@@ -1309,7 +1674,6 @@ export function App() {
     setGoogleRecoveryMessage(flow.reason.userMessage);
     setAuthModalMode('login');
     setAuthModalOpen(true);
-    notify(flow.reason.userMessage, 'warning');
   };
 
   const handlePasswordRegister = async (params: {
@@ -1353,6 +1717,7 @@ export function App() {
     }
     if (data.sessionToken) {
       participantTokenRef.current = data.sessionToken;
+      writeStoredSessionToken(PARTICIPANT_SESSION_TOKEN_KEY, data.sessionToken);
     }
     const created = data.participant;
     setServerParticipant(created);
@@ -1398,6 +1763,7 @@ export function App() {
     }
     if (data.sessionToken) {
       participantTokenRef.current = data.sessionToken;
+      writeStoredSessionToken(PARTICIPANT_SESSION_TOKEN_KEY, data.sessionToken);
     }
     const logged = data.participant;
     setServerParticipant(logged);
@@ -1427,12 +1793,9 @@ export function App() {
     let nextPhotoUrl = participantMeta.photoUrl || '';
 
     if (serverParticipant) {
-      const headers: Record<string, string> = {
+      const headers = buildParticipantAuthHeaders(participantTokenRef.current, {
         'Content-Type': 'application/json',
-      };
-      if (participantTokenRef.current) {
-        headers['X-Hafiz-Participant-Token'] = participantTokenRef.current;
-      }
+      });
       const res = await fetch('/api/participants/profile', {
         method: 'PUT',
         credentials: 'include',
@@ -1489,7 +1852,7 @@ export function App() {
         const idToken = await firebaseUser.getIdToken();
         const syncRes = await fetch('/api/participants/sync-google', {
           method: 'POST',
-          credentials: 'same-origin',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             idToken,
@@ -1506,7 +1869,14 @@ export function App() {
           }),
         });
         if (syncRes.ok) {
-          const syncJson = (await syncRes.json()) as { participant?: ParticipantRecord };
+          const syncJson = (await syncRes.json()) as {
+            sessionToken?: string;
+            participant?: ParticipantRecord;
+          };
+          if (syncJson.sessionToken) {
+            participantTokenRef.current = syncJson.sessionToken;
+            writeStoredSessionToken(PARTICIPANT_SESSION_TOKEN_KEY, syncJson.sessionToken);
+          }
           if (syncJson.participant?.photoUrl) {
             setParticipantMeta((prev) => ({ ...prev, photoUrl: syncJson.participant!.photoUrl }));
           }
@@ -1659,8 +2029,19 @@ export function App() {
   };
 
   const handleParticipantLogout = async () => {
+    markManualGoogleLogout(true);
+    setGoogleAutoConnectStatus('ready-manual');
     try {
-      await fetch('/api/participants/logout', { method: 'POST', credentials: 'include' });
+      window.google?.accounts?.id?.disableAutoSelect?.();
+      window.google?.accounts?.id?.cancel?.();
+    } catch {
+      // ignore GIS cleanup
+    }
+    try {
+      await Promise.all([
+        fetch('/api/participants/logout', { method: 'POST', credentials: 'include' }),
+        fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }),
+      ]);
     } catch {
       // ignore network error
     }
@@ -1670,10 +2051,12 @@ export function App() {
       // continue local cleanup even if network signOut is slow
     }
     participantTokenRef.current = '';
+    writeStoredSessionToken(PARTICIPANT_SESSION_TOKEN_KEY, '');
     setServerParticipant(null);
     setAdminAuthenticated(false);
     setAdminNavUnlocked(false);
     adminTokenRef.current = '';
+    writeStoredSessionToken(ADMIN_SESSION_TOKEN_KEY, '');
     setUserHistory([]);
     setParticipantMeta({
       username: '',
@@ -2156,7 +2539,7 @@ export function App() {
         const sessionToken = await fetchCsrfToken();
         const authRes = await fetch('/api/admin/authorize', {
           method: 'POST',
-          credentials: 'same-origin',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
             'X-Hafiz-Token': sessionToken,
@@ -2170,6 +2553,7 @@ export function App() {
         const authJson = (await authRes.json()) as { ok?: boolean; adminToken?: string };
         if (authRes.ok && authJson.adminToken) {
           adminTokenRef.current = authJson.adminToken;
+          writeStoredSessionToken(ADMIN_SESSION_TOKEN_KEY, authJson.adminToken);
         }
       } catch {
         // continue with local verification
@@ -2202,7 +2586,6 @@ export function App() {
     }
     if (flow.status === 'recovery-needed') {
       setAdminGoogleRecoveryMessage(flow.reason.userMessage);
-      notify(flow.reason.userMessage, 'warning');
       return;
     }
     const user = flow.user;
@@ -2218,7 +2601,7 @@ export function App() {
         ]);
         const authRes = await fetch('/api/admin/authorize', {
           method: 'POST',
-          credentials: 'same-origin',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
             'X-Hafiz-Token': sessionToken,
@@ -2228,6 +2611,7 @@ export function App() {
         const authJson = (await authRes.json()) as { ok?: boolean; adminToken?: string };
         if (authRes.ok && authJson.adminToken) {
           adminTokenRef.current = authJson.adminToken;
+          writeStoredSessionToken(ADMIN_SESSION_TOKEN_KEY, authJson.adminToken);
         }
       } catch {
         // continue even if token exchange skipped
@@ -2246,11 +2630,17 @@ export function App() {
 
   const handleGoogleAdminLogout = async () => {
     try {
+      await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' });
+    } catch {
+      // ignore network error
+    }
+    try {
       await signOutAdmin();
     } catch {
       // ignore if signed in locally only
     }
     adminTokenRef.current = '';
+    writeStoredSessionToken(ADMIN_SESSION_TOKEN_KEY, '');
     setAdminAuthenticated(false);
     setAdminNavUnlocked(false);
     setView('landing');
@@ -2297,6 +2687,23 @@ export function App() {
     const nextRooms = { ...rooms, [studioCode]: newRoom };
     setRooms(nextRooms);
     saveRooms(nextRooms);
+    writeDeletedRoomCodes(readDeletedRoomCodes().filter((c) => c !== studioCode));
+    if (adminTokenRef.current) {
+      fetchCsrfToken()
+        .then((sessionToken) =>
+          fetch('/api/rooms/deleted', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Hafiz-Token': sessionToken,
+              ...buildAdminAuthHeaders(adminTokenRef.current),
+            },
+            body: JSON.stringify({ roomCode: studioCode, restore: true }),
+          })
+        )
+        .catch(() => {});
+    }
     if (currentRoom.code === studioCode) {
       setCurrentRoom(newRoom);
     }
@@ -2396,35 +2803,58 @@ export function App() {
   };
 
   const handleRequestDeleteRoom = (room: QuizRoom) => {
-    if (!isGoogleAdminVerified) {
-      notify('🔒 Hanya Admin terverifikasi Google yang dapat menghapus soal.', 'warning');
+    if (!isGoogleAdminVerified && !adminAuthenticated) {
+      notify('🔒 Hanya Admin terverifikasi yang dapat menghapus paket soal.', 'warning');
       return;
     }
     setConfirmState({
       open: true,
       title: `Hapus Paket Soal "${room.title}"?`,
-      description: `Paket kuis (${room.code}, ${room.questions.length} soal) akan dihapus permanen dari Portal Belajar dan Cloud Firestore.`,
+      description: `Paket kuis (${room.code}, ${room.questions.length} soal) akan dihapus permanen dari Portal Belajar.`,
       onConfirm: async () => {
         setConfirmState((prev) => ({ ...prev, open: false }));
-        if (!isGoogleAdminVerified) {
+        if (!isGoogleAdminVerified && !adminAuthenticated) {
           notify('🔒 Akses ditolak: hanya Admin yang dapat menghapus soal.', 'error');
           return;
         }
-        try {
-          await deleteRoomFromFirestore(room.code);
-          setRooms((prev) => {
-            const next = { ...prev };
-            delete next[room.code];
-            saveRooms(next);
-            return next;
-          });
-          if (studioCode === room.code) {
-            setStudioPublished(false);
-          }
-          notify(`🗑️ Paket soal "${room.title}" (${room.code}) berhasil dihapus permanen oleh Admin!`, 'success');
-        } catch {
-          notify(`⚠️ Gagal menghapus paket soal dari Cloud Firestore. Pastikan akun Google Admin aktif.`, 'error');
+        writeDeletedRoomCodes([...readDeletedRoomCodes(), room.code]);
+        setRooms((prev) => {
+          const next = { ...prev };
+          delete next[room.code];
+          saveRooms(next);
+          return next;
+        });
+        if (studioCode === room.code) {
+          setStudioPublished(false);
         }
+        if (adminTokenRef.current) {
+          fetchCsrfToken()
+            .then((sessionToken) =>
+              fetch('/api/rooms/deleted', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Hafiz-Token': sessionToken,
+                  ...buildAdminAuthHeaders(adminTokenRef.current),
+                },
+                body: JSON.stringify({ roomCode: room.code }),
+              })
+            )
+            .catch(() => {});
+        }
+        if (isGoogleAdminVerified) {
+          try {
+            await deleteRoomFromFirestore(room.code);
+          } catch {
+            notify(
+              `⚠️ Paket soal "${room.title}" dihapus dari tampilan, namun gagal menghapus dari Cloud Firestore.`,
+              'warning'
+            );
+            return;
+          }
+        }
+        notify(`🗑️ Paket soal "${room.title}" (${room.code}) berhasil dihapus permanen oleh Admin!`, 'success');
       },
     });
   };
@@ -2468,42 +2898,250 @@ export function App() {
     );
   };
 
+  const deleteServerMaterialFileIfNeeded = useCallback(async (pptUrl?: string) => {
+    const storedName = extractLocalMaterialFileName(pptUrl);
+    if (!storedName || !adminTokenRef.current) return;
+    try {
+      const sessionToken = await fetchCsrfToken();
+      await fetch(`/api/material-files/${encodeURIComponent(storedName)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: {
+          'X-Hafiz-Token': sessionToken,
+          'X-Hafiz-Admin-Token': adminTokenRef.current,
+        },
+      });
+    } catch {
+      // best-effort cleanup on server disk
+    }
+  }, []);
+
+  const saveMaterialToServerDb = useCallback(async (material: StudyModule) => {
+    if (!adminTokenRef.current) return false;
+    try {
+      const sessionToken = await fetchCsrfToken();
+      const res = await fetch('/api/materials', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hafiz-Token': sessionToken,
+          ...buildAdminAuthHeaders(adminTokenRef.current),
+        },
+        body: JSON.stringify({ material }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const deleteMaterialFromServerDb = useCallback(async (materialId: string) => {
+    if (!adminTokenRef.current) return false;
+    try {
+      const sessionToken = await fetchCsrfToken();
+      const res = await fetch(`/api/materials/${encodeURIComponent(materialId)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'X-Hafiz-Token': sessionToken,
+          ...buildAdminAuthHeaders(adminTokenRef.current),
+        },
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const handleSaveMaterial = async (material: StudyModule) => {
+    const previous = uploadedMaterials.find((m) => m.id === material.id);
+    if (previous?.pptUrl && previous.pptUrl !== material.pptUrl) {
+      void deleteServerMaterialFileIfNeeded(previous.pptUrl);
+    }
+
+    writeDeletedMaterialIds(readDeletedMaterialIds().filter((id) => id !== material.id));
+
     setUploadedMaterials((prev) => {
-      const next = [material, ...prev.filter((m) => m.id !== material.id)];
+      const next = replaceMaterialInList(prev, material);
       try {
-        localStorage.setItem('hafiz_uploaded_materials_v1', JSON.stringify(next));
+        localStorage.setItem(UPLOADED_MATERIALS_STORAGE_KEY, JSON.stringify(next));
       } catch {
         // ignore storage quota
       }
       return next;
     });
+
+    const savedOnServer = await saveMaterialToServerDb(material);
+
     if (isGoogleAdminVerified && firebaseUser) {
       try {
         await saveMaterialToFirestore(material, firebaseUser.uid);
+        writePendingLocalMaterialIds(
+          readPendingLocalMaterialIds().filter((id) => id !== material.id)
+        );
         notify(`📘 Materi "${material.title}" berhasil dipublikasikan ke Cloud!`, 'success');
       } catch {
+        writePendingLocalMaterialIds([...readPendingLocalMaterialIds(), material.id]);
         notify('⚠️ Materi tersimpan lokal, namun gagal sinkron ke Cloud.', 'warning');
       }
     } else {
-      notify(`📘 Materi "${material.title}" tersimpan lokal! Login Google Admin untuk sinkron Cloud.`, 'success');
+      writePendingLocalMaterialIds([...readPendingLocalMaterialIds(), material.id]);
+      notify(
+        savedOnServer
+          ? `📘 Materi "${material.title}" tersimpan permanen di server & perangkat ini!`
+          : `📘 Materi "${material.title}" tersimpan! (Login Google Admin untuk sinkron Cloud publik)`,
+        'success'
+      );
     }
   };
 
-  const handleDeleteMaterial = async (materialId: string) => {
+  const performDeleteMaterial = async (materialId: string) => {
+    const target = uploadedMaterials.find((m) => m.id === materialId);
+    writeDeletedMaterialIds([...readDeletedMaterialIds(), materialId]);
     setUploadedMaterials((prev) => {
-      const next = prev.filter((m) => m.id !== materialId);
+      const next = removeMaterialById(prev, materialId);
       try {
-        localStorage.setItem('hafiz_uploaded_materials_v1', JSON.stringify(next));
+        localStorage.setItem(UPLOADED_MATERIALS_STORAGE_KEY, JSON.stringify(next));
       } catch {
         // ignore storage quota
       }
       return next;
     });
-    if (isGoogleAdminVerified) {
-      deleteMaterialFromFirestore(materialId).catch(() => {});
+    writePendingLocalMaterialIds(readPendingLocalMaterialIds().filter((id) => id !== materialId));
+
+    if (target?.pptUrl) {
+      void deleteServerMaterialFileIfNeeded(target.pptUrl);
     }
-    notify('🗑️ Materi berhasil dihapus.', 'info');
+    await deleteMaterialFromServerDb(materialId);
+
+    if (isGoogleAdminVerified) {
+      try {
+        await deleteMaterialFromFirestore(materialId);
+      } catch {
+        notify('⚠️ Terhapus di tampilan & server, namun gagal menghapus dari Cloud Firestore.', 'warning');
+        return;
+      }
+    }
+    notify(`🗑️ Materi "${target?.title || 'Pilihan'}" berhasil dihapus permanen.`, 'success');
+  };
+
+  const performRemoveMaterialPpt = async (materialId: string) => {
+    const target = uploadedMaterials.find((m) => m.id === materialId);
+    if (!target || !target.pptUrl) {
+      notify('Materi ini tidak memiliki lampiran PPT.', 'info');
+      return;
+    }
+    const oldPptUrl = target.pptUrl;
+    const stripped = stripMaterialPpt(target);
+
+    setUploadedMaterials((prev) => {
+      const next = replaceMaterialInList(prev, stripped);
+      try {
+        localStorage.setItem(UPLOADED_MATERIALS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore storage quota
+      }
+      return next;
+    });
+
+    void deleteServerMaterialFileIfNeeded(oldPptUrl);
+    await saveMaterialToServerDb(stripped);
+
+    if (isGoogleAdminVerified && firebaseUser) {
+      try {
+        await saveMaterialToFirestore(stripped, firebaseUser.uid);
+        notify(`🗑️ Lampiran PPT pada "${target.title}" berhasil dihapus!`, 'success');
+      } catch {
+        notify('⚠️ PPT dihapus secara lokal, namun gagal sinkron ke Cloud.', 'warning');
+      }
+    } else {
+      writePendingLocalMaterialIds([...readPendingLocalMaterialIds(), stripped.id]);
+      notify(`🗑️ Lampiran PPT pada "${target.title}" berhasil dihapus!`, 'success');
+    }
+  };
+
+  const handleRequestDeleteMaterial = (materialId: string) => {
+    const target = uploadedMaterials.find((m) => m.id === materialId);
+    setConfirmState({
+      open: true,
+      title: `Hapus Materi & Modul "${target?.title || 'Ini'}"?`,
+      description: target?.pptUrl
+        ? `Seluruh materi, ringkasan, dan lampiran PPT (${target.pptName || 'File PPT'}) pada modul ini akan dihapus permanen.`
+        : 'Seluruh isi materi dan modul pembelajaran ini akan dihapus permanen dari Portal Belajar.',
+      onConfirm: async () => {
+        setConfirmState((s) => ({ ...s, open: false }));
+        await performDeleteMaterial(materialId);
+      },
+    });
+  };
+
+  const handleRequestRemoveMaterialPpt = (materialId: string) => {
+    const target = uploadedMaterials.find((m) => m.id === materialId);
+    if (!target || !target.pptUrl) return;
+    setConfirmState({
+      open: true,
+      title: 'Hapus Slide PPT / Lampiran?',
+      description: `File "${target.pptName || 'Lampiran PPT'}" akan dihapus dari modul "${target.title}". Ringkasan materi dan video tetap dipertahankan.`,
+      onConfirm: async () => {
+        setConfirmState((s) => ({ ...s, open: false }));
+        await performRemoveMaterialPpt(materialId);
+      },
+    });
+  };
+
+  const handleRequestDeleteMaterialsBulk = (materialIds: string[]) => {
+    if (materialIds.length === 0) return;
+    setConfirmState({
+      open: true,
+      title: `Hapus ${materialIds.length} Materi & Modul Terfilter?`,
+      description: `Sebanyak ${materialIds.length} materi beserta seluruh lampiran PPT di dalamnya akan dihapus permanen.`,
+      onConfirm: async () => {
+        setConfirmState((s) => ({ ...s, open: false }));
+        const idSet = new Set(materialIds);
+        const targets = uploadedMaterials.filter((m) => idSet.has(m.id));
+        writeDeletedMaterialIds([...readDeletedMaterialIds(), ...materialIds]);
+        setUploadedMaterials((prev) => {
+          const next = prev.filter((m) => !idSet.has(m.id));
+          try {
+            localStorage.setItem(UPLOADED_MATERIALS_STORAGE_KEY, JSON.stringify(next));
+          } catch {
+            // ignore storage quota
+          }
+          return next;
+        });
+        writePendingLocalMaterialIds(
+          readPendingLocalMaterialIds().filter((id) => !idSet.has(id))
+        );
+        for (const t of targets) {
+          if (t.pptUrl) {
+            void deleteServerMaterialFileIfNeeded(t.pptUrl);
+          }
+        }
+        if (adminTokenRef.current) {
+          fetchCsrfToken()
+            .then((sessionToken) =>
+              fetch('/api/materials/bulk-delete', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Hafiz-Token': sessionToken,
+                  ...buildAdminAuthHeaders(adminTokenRef.current),
+                },
+                body: JSON.stringify({ materialIds }),
+              })
+            )
+            .catch(() => {});
+        }
+        if (isGoogleAdminVerified) {
+          await Promise.all(
+            materialIds.map((id) => deleteMaterialFromFirestore(id).catch(() => {}))
+          );
+        }
+        notify(`🗑️ ${materialIds.length} materi & modul berhasil dihapus.`, 'success');
+      },
+    });
   };
 
   const handleCopyShareLink = () => {
@@ -2594,7 +3232,11 @@ export function App() {
   return (
     <div className="min-h-screen flex flex-col relative z-10">
       <OfflineIndicator language={webSettings.language} />
-      <IntroSplash brandName={siteSettings.brandName} skip={webSettings.skipIntroSplash} />
+      <IntroSplash
+        brandName={siteSettings.brandName}
+        introVideoUrl={siteSettings.introVideoUrl}
+        skip={webSettings.skipIntroSplash}
+      />
       <GalaxyBackground enabled={webSettings.galaxyEffects} />
 
       <Header
@@ -2654,6 +3296,11 @@ export function App() {
             avatar={avatar}
             activeSavedRoom={activeSavedRoom}
             userEmail={activeParticipantIdentity}
+            isGoogleConnected={Boolean(
+              (firebaseUser?.email && firebaseUser.providerData.some((p) => p.providerId === 'google.com')) ||
+                serverParticipant?.authMethod === 'google'
+            )}
+            googleAutoConnectStatus={googleAutoConnectStatus}
             participantPhotoUrl={activeParticipantPhotoUrl}
             participantSchool={participantMeta.school}
             participantTargetCampus={participantMeta.targetCampus}
@@ -2696,7 +3343,7 @@ export function App() {
               isAnyAdminSession && adminNavUnlocked ? handleEditUploadedRoom : undefined
             }
             onDeleteUploadedRoom={
-              isGoogleAdminVerified && adminNavUnlocked ? handleRequestDeleteRoom : undefined
+              isAnyAdminSession && adminNavUnlocked ? handleRequestDeleteRoom : undefined
             }
             onUploadFounderPhoto={(file) => {
               const reader = new FileReader();
@@ -2731,10 +3378,13 @@ export function App() {
               isAnyAdminSession && adminNavUnlocked ? handleEditUploadedRoom : undefined
             }
             onDeleteUploadedRoom={
-              isGoogleAdminVerified && adminNavUnlocked ? handleRequestDeleteRoom : undefined
+              isAnyAdminSession && adminNavUnlocked ? handleRequestDeleteRoom : undefined
             }
             onDeleteUploadedMaterial={
-              isGoogleAdminVerified && adminNavUnlocked ? handleDeleteMaterial : undefined
+              isAnyAdminSession && adminNavUnlocked ? handleRequestDeleteMaterial : undefined
+            }
+            onDeleteMaterialPpt={
+              isAnyAdminSession && adminNavUnlocked ? handleRequestRemoveMaterialPpt : undefined
             }
             onToggleLiveSession={
               isGoogleAdminVerified && adminNavUnlocked
@@ -2957,7 +3607,12 @@ export function App() {
             onDeleteRoom={handleRequestDeleteRoom}
             uploadedMaterials={uploadedMaterials}
             onSaveMaterial={handleSaveMaterial}
-            onDeleteMaterial={handleDeleteMaterial}
+            onDeleteMaterial={handleRequestDeleteMaterial}
+            onDeleteMaterialPpt={handleRequestRemoveMaterialPpt}
+            onDeleteMaterialsBulk={handleRequestDeleteMaterialsBulk}
+            onDiscardUploadedAttachment={(pptUrl) => {
+              void deleteServerMaterialFileIfNeeded(pptUrl);
+            }}
             liveSessions={liveSessions}
             onSaveLiveSession={async (session) => {
               if (!isGoogleAdminVerified || !firebaseUser) {
@@ -3249,6 +3904,7 @@ export function App() {
         onVerify={handleVerifyAdmin}
         onGoogleAdminLogin={handleGoogleAdminLogin}
         googleRecoveryMessage={adminGoogleRecoveryMessage}
+        firebaseProjectId={FIREBASE_PROJECT_ID}
         onCopyPassword={() => {
           navigator.clipboard?.writeText(systemPw.plain).catch(() => {});
           notify('📋 Password sistem disalin ke clipboard.', 'info');

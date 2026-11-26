@@ -34,6 +34,7 @@ interface AcademicPortalsViewProps {
   onEditUploadedRoom?: (room: QuizRoom) => void;
   onDeleteUploadedRoom?: (room: QuizRoom) => void;
   onDeleteUploadedMaterial?: (materialId: string) => void;
+  onDeleteMaterialPpt?: (materialId: string) => void;
   onToggleLiveSession?: (session: LiveTeachingSession) => void;
   onDeleteLiveSession?: (sessionId: string) => void;
   onOpenCampusAnalysis?: (mode?: 'utbk' | 'kedinasan') => void;
@@ -59,6 +60,7 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
   onEditUploadedRoom,
   onDeleteUploadedRoom,
   onDeleteUploadedMaterial,
+  onDeleteMaterialPpt,
   onToggleLiveSession,
   onDeleteLiveSession,
   onOpenCampusAnalysis,
@@ -103,6 +105,11 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
     }
     return Array.from(byId.values());
   }, [uploadedMaterials]);
+
+  const activeSelectedModule = useMemo(() => {
+    if (!selectedModule) return null;
+    return allMaterials.find((m) => m.id === selectedModule.id) ?? null;
+  }, [allMaterials, selectedModule]);
 
   const asasXiiCards = useMemo(() => {
     const builtIn = TRYOUT_PORTALS.filter((p) => p.category === 'ASAS XII').map((p) => ({
@@ -271,16 +278,16 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
   const totalTkaModules = allMaterials.filter((m) => m.portal === 'tka').length;
   const totalSmaModules = allMaterials.filter((m) => m.portal === 'sma').length;
 
-  // Participant Account Gate (Tanpa Google — Nama & Kata Sandi)
-  if (!userEmail) {
+  // Participant Account Gate (Admin Studio tetap bisa langsung masuk untuk kelola materi & modul)
+  if (!userEmail && !isAdmin) {
     return (
       <section id="view-portals-login-gate" className="max-w-2xl mx-auto py-8 sm:py-14">
         <div className="hero-glow-card holo-top-beam p-8 sm:p-10 rounded-3xl text-center space-y-6">
-          <div className="mx-auto w-20 h-20 rounded-full p-1.5 bg-gradient-to-br from-sky-400 via-indigo-500 to-teal-400 shadow-[0_0_28px_rgba(56,189,248,0.45)]">
+          <div className="mx-auto w-20 h-20 rounded-full p-1 bg-gradient-to-br from-amber-300 via-emerald-400 to-teal-400 shadow-[0_0_28px_rgba(16,185,129,0.45)]">
             <img
-              src="/assets/aistudio/Favicon_0fd84ae5.png"
+              src="/assets/hafiz-logo.png"
               alt="Logo Hafiz Education"
-              className="w-full h-full rounded-full object-cover bg-slate-900"
+              className="w-full h-full rounded-full object-cover bg-[#021d1c]"
             />
           </div>
 
@@ -375,7 +382,7 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-sky-400/20 pb-6">
         <div className="space-y-2">
           <p className="text-xs font-semibold text-sky-300">
-            Hafiz Education Academic Suite · {userEmail}
+            Hafiz Education Academic Suite · {userEmail || 'Mode Admin Studio'}
           </p>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-gold-gradient">
             Portal Belajar &amp; Perpustakaan Materi
@@ -671,15 +678,16 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                                   ✏️
                                 </button>
                               )}
-                              {isAdmin && onDeleteUploadedRoom && (
+                              {isAdmin && onDeleteUploadedRoom && uploadedRooms.some((r) => r.code === portal.room.code) && (
                                 <button
                                   type="button"
+                                  data-testid={`portal-btn-delete-room-${portal.room.code}`}
                                   onClick={() => onDeleteUploadedRoom(portal.room)}
-                                  title="Hapus paket soal ini"
+                                  title="Hapus paket soal Kedinasan ini"
                                   aria-label={`Hapus paket soal ${portal.title}`}
-                                  className="px-3 py-3 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition shrink-0"
+                                  className="px-3 py-3 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-bold transition shrink-0 whitespace-nowrap"
                                 >
-                                  🗑️
+                                  🗑️ Hapus
                                 </button>
                               )}
                             </div>
@@ -733,13 +741,15 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                       <h4 className="font-display text-lg font-bold text-white leading-snug">
                         {mod.title}
                       </h4>
-                      <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">{mod.summary}</p>
+                      {mod.summary.trim() && (
+                        <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">{mod.summary}</p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 pt-3 border-t border-sky-400/20">
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-sky-400/20">
                       <button
                         type="button"
                         onClick={() => setSelectedModule(mod)}
-                        className="flex-1 py-2.5 px-3.5 rounded-xl bg-purple-500/25 hover:bg-purple-500/40 border border-purple-400/45 text-purple-100 text-xs font-bold transition whitespace-nowrap"
+                        className="flex-1 min-w-[130px] py-2.5 px-3.5 rounded-xl bg-purple-500/25 hover:bg-purple-500/40 border border-purple-400/45 text-purple-100 text-xs font-bold transition whitespace-nowrap"
                       >
                         Buka Modul &amp; Video
                       </button>
@@ -756,16 +766,31 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                         {bookmarkedIds.includes(mod.id) ? '★' : '☆'}
                       </button>
                       {isAdmin &&
+                        onDeleteMaterialPpt &&
+                        mod.pptUrl &&
+                        uploadedMaterials.some((u) => u.id === mod.id) && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteMaterialPpt(mod.id)}
+                            title="Hapus file PPT saja"
+                            aria-label={`Hapus PPT ${mod.title}`}
+                            className="px-2.5 py-2.5 rounded-xl bg-amber-950/75 hover:bg-amber-900 border border-amber-500/45 text-amber-200 text-[11px] font-bold transition shrink-0 whitespace-nowrap"
+                          >
+                            Hapus PPT
+                          </button>
+                        )}
+                      {isAdmin &&
                         onDeleteUploadedMaterial &&
                         uploadedMaterials.some((u) => u.id === mod.id) && (
                           <button
                             type="button"
+                            data-testid={`portal-btn-delete-mat-${mod.id}`}
                             onClick={() => onDeleteUploadedMaterial(mod.id)}
-                            title="Hapus materi ini"
+                            title="Hapus materi / modul Kedinasan ini"
                             aria-label={`Hapus materi ${mod.title}`}
-                            className="px-3 py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition shrink-0"
+                            className="px-3 py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-bold transition shrink-0 whitespace-nowrap"
                           >
-                            🗑️
+                            🗑️ Hapus
                           </button>
                         )}
                     </div>
@@ -891,15 +916,16 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                                   ✏️
                                 </button>
                               )}
-                              {isAdmin && onDeleteUploadedRoom && (
+                              {isAdmin && onDeleteUploadedRoom && uploadedRooms.some((r) => r.code === portal.room.code) && (
                                 <button
                                   type="button"
+                                  data-testid={`portal-btn-delete-room-${portal.room.code}`}
                                   onClick={() => onDeleteUploadedRoom(portal.room)}
                                   title="Hapus paket soal ini"
                                   aria-label={`Hapus paket soal ${portal.title}`}
-                                  className="px-3 py-3 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition shrink-0"
+                                  className="px-3 py-3 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-bold transition shrink-0 whitespace-nowrap"
                                 >
-                                  🗑️
+                                  🗑️ Hapus
                                 </button>
                               )}
                             </div>
@@ -918,7 +944,7 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-sky-400/20 pb-4">
               <div>
                 <p className="text-xs font-semibold text-sky-300 tracking-wide">
-                  Arsip Pribadi Peserta · {userEmail}
+                  Arsip Pribadi Peserta · {userEmail || 'Mode Admin Studio'}
                 </p>
                 <h3 className="font-display text-xl sm:text-2xl font-bold text-white mt-1">
                   Riwayat Kuis &amp; Sertifikat Astronot Saya
@@ -1170,15 +1196,16 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                                 ✏️
                               </button>
                             )}
-                            {isAdmin && onDeleteUploadedRoom && (
+                            {isAdmin && onDeleteUploadedRoom && uploadedRooms.some((r) => r.code === portal.room.code) && (
                               <button
                                 type="button"
+                                data-testid={`portal-btn-delete-room-${portal.room.code}`}
                                 onClick={() => onDeleteUploadedRoom(portal.room)}
-                                title="Hapus paket soal ini"
+                                title="Hapus paket soal UTBK ini"
                                 aria-label={`Hapus paket soal ${portal.title}`}
-                                className="px-3 py-3 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition shrink-0"
+                                className="px-3 py-3 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-bold transition shrink-0 whitespace-nowrap"
                               >
-                                🗑️
+                                🗑️ Hapus
                               </button>
                             )}
                           </div>
@@ -1318,15 +1345,16 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                                 ✏️
                               </button>
                             )}
-                            {isAdmin && onDeleteUploadedRoom && (
+                            {isAdmin && onDeleteUploadedRoom && uploadedRooms.some((r) => r.code === portal.room.code) && (
                               <button
                                 type="button"
+                                data-testid={`portal-btn-delete-room-${portal.room.code}`}
                                 onClick={() => onDeleteUploadedRoom(portal.room)}
-                                title="Hapus paket soal ini"
+                                title="Hapus paket soal TKA ini"
                                 aria-label={`Hapus paket soal ${portal.title}`}
-                                className="px-3 py-3 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition shrink-0"
+                                className="px-3 py-3 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-bold transition shrink-0 whitespace-nowrap"
                               >
-                                🗑️
+                                🗑️ Hapus
                               </button>
                             )}
                           </div>
@@ -1403,7 +1431,9 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                     <h3 className="font-display text-lg font-bold text-white leading-snug">
                       {mod.title}
                     </h3>
-                    <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">{mod.summary}</p>
+                    {mod.summary.trim() && (
+                      <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">{mod.summary}</p>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-2 pt-3 border-t border-sky-400/20">
@@ -1412,7 +1442,7 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                       onClick={() => setSelectedModule(mod)}
                       className="w-full py-2.5 px-3.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 text-xs font-bold transition whitespace-nowrap"
                     >
-                      Buka Ringkasan &amp; Rumus
+                      {mod.youtubeUrl || mod.pptUrl ? 'Buka Modul, Video & PPT' : 'Buka Modul TKA'}
                     </button>
                     {mod.practiceQuestions.length > 0 && (
                       <button
@@ -1424,11 +1454,26 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                       </button>
                     )}
                     {isAdmin &&
+                      onDeleteMaterialPpt &&
+                      mod.pptUrl &&
+                      uploadedMaterials.some((u) => u.id === mod.id) && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteMaterialPpt(mod.id)}
+                          aria-label={`Hapus PPT ${mod.title}`}
+                          className="w-full py-2 px-3.5 rounded-xl bg-amber-950/75 hover:bg-amber-900 border border-amber-500/45 text-amber-200 text-xs font-bold transition whitespace-nowrap"
+                        >
+                          🗑️ Hapus PPT Lampiran
+                        </button>
+                      )}
+                    {isAdmin &&
                       onDeleteUploadedMaterial &&
                       uploadedMaterials.some((u) => u.id === mod.id) && (
                         <button
                           type="button"
+                          data-testid={`portal-btn-delete-mat-${mod.id}`}
                           onClick={() => onDeleteUploadedMaterial(mod.id)}
+                          aria-label={`Hapus materi ${mod.title}`}
                           className="w-full py-2 px-3.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-bold transition whitespace-nowrap"
                         >
                           🗑️ Hapus Modul Ini
@@ -1502,12 +1547,13 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                       {isAdmin && onDeleteUploadedRoom && uploadedRooms.some((r) => r.code === toRoom.code) && (
                         <button
                           type="button"
+                          data-testid={`portal-btn-delete-room-${toRoom.code}`}
                           onClick={() => onDeleteUploadedRoom(toRoom)}
                           title="Hapus paket soal ini"
                           aria-label={`Hapus soal ${toRoom.title}`}
-                          className="px-2.5 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition"
+                          className="px-2.5 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-bold transition whitespace-nowrap"
                         >
-                          🗑️
+                          🗑️ Hapus
                         </button>
                       )}
                     </div>
@@ -1554,14 +1600,16 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                         <h4 className="font-display text-lg font-bold text-white leading-snug">
                           {mod.title}
                         </h4>
-                        <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">{mod.summary}</p>
+                        {mod.summary.trim() && (
+                          <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">{mod.summary}</p>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-2 pt-3 border-t border-sky-400/20">
+                      <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-sky-400/20">
                         <button
                           type="button"
                           onClick={() => setSelectedModule(mod)}
-                          className="flex-1 py-2.5 px-3.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 text-xs font-bold transition whitespace-nowrap"
+                          className="flex-1 min-w-[130px] py-2.5 px-3.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 text-xs font-bold transition whitespace-nowrap"
                         >
                           {mod.youtubeUrl || mod.pptUrl ? 'Buka Materi, Video & PPT' : 'Pelajari Modul'}
                         </button>
@@ -1587,16 +1635,31 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                           </button>
                         )}
                         {isAdmin &&
+                          onDeleteMaterialPpt &&
+                          mod.pptUrl &&
+                          uploadedMaterials.some((u) => u.id === mod.id) && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteMaterialPpt(mod.id)}
+                              title="Hapus file PPT saja"
+                              aria-label={`Hapus PPT ${mod.title}`}
+                              className="px-2.5 py-2.5 rounded-xl bg-amber-950/75 hover:bg-amber-900 border border-amber-500/45 text-amber-200 text-[11px] font-bold transition shrink-0 whitespace-nowrap"
+                            >
+                              Hapus PPT
+                            </button>
+                          )}
+                        {isAdmin &&
                           onDeleteUploadedMaterial &&
                           uploadedMaterials.some((u) => u.id === mod.id) && (
                             <button
                               type="button"
+                              data-testid={`portal-btn-delete-mat-${mod.id}`}
                               onClick={() => onDeleteUploadedMaterial(mod.id)}
-                              title="Hapus materi ini"
+                              title="Hapus materi / modul ini"
                               aria-label={`Hapus materi ${mod.title}`}
-                              className="px-3 py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition shrink-0"
+                              className="px-3 py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-bold transition shrink-0 whitespace-nowrap"
                             >
-                              🗑️
+                              🗑️ Hapus
                             </button>
                           )}
                       </div>
@@ -1653,14 +1716,16 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                     <h3 className="font-display text-lg font-bold text-white leading-snug">
                       {mod.title}
                     </h3>
-                    <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">{mod.summary}</p>
+                    {mod.summary.trim() && (
+                      <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">{mod.summary}</p>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-2.5 pt-3 border-t border-sky-400/20">
+                  <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-sky-400/20">
                     <button
                       type="button"
                       onClick={() => setSelectedModule(mod)}
-                      className="flex-1 py-2.5 px-3.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 text-xs font-bold transition whitespace-nowrap"
+                      className="flex-1 min-w-[120px] py-2.5 px-3.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/40 text-sky-200 text-xs font-bold transition whitespace-nowrap"
                     >
                       Baca Materi
                     </button>
@@ -1674,16 +1739,31 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                       </button>
                     )}
                     {isAdmin &&
+                      onDeleteMaterialPpt &&
+                      mod.pptUrl &&
+                      uploadedMaterials.some((u) => u.id === mod.id) && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteMaterialPpt(mod.id)}
+                          title="Hapus file PPT saja"
+                          aria-label={`Hapus PPT ${mod.title}`}
+                          className="px-2.5 py-2.5 rounded-xl bg-amber-950/75 hover:bg-amber-900 border border-amber-500/45 text-amber-200 text-[11px] font-bold transition shrink-0 whitespace-nowrap"
+                        >
+                          Hapus PPT
+                        </button>
+                      )}
+                    {isAdmin &&
                       onDeleteUploadedMaterial &&
                       uploadedMaterials.some((u) => u.id === mod.id) && (
                         <button
                           type="button"
+                          data-testid={`portal-btn-delete-mat-${mod.id}`}
                           onClick={() => onDeleteUploadedMaterial(mod.id)}
-                          title="Hapus materi ini"
+                          title="Hapus materi UTBK ini"
                           aria-label={`Hapus materi ${mod.title}`}
-                          className="px-3 py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition shrink-0"
+                          className="px-3 py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-xs font-bold transition shrink-0 whitespace-nowrap"
                         >
-                          🗑️
+                          🗑️ Hapus
                         </button>
                       )}
                   </div>
@@ -1695,7 +1775,7 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
       )}
 
       {/* Cosmic Study Module Reader Modal */}
-      {selectedModule && (
+      {activeSelectedModule && (
         <div
           className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4"
           role="dialog"
@@ -1706,13 +1786,13 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
             <div className="flex items-start justify-between gap-4 border-b border-sky-400/20 pb-4">
               <div>
                 <p className="text-xs font-semibold text-sky-300">
-                  {selectedModule.subject} {selectedModule.subtitle ? `· ${selectedModule.subtitle}` : ''}
+                  {activeSelectedModule.subject} {activeSelectedModule.subtitle ? `· ${activeSelectedModule.subtitle}` : ''}
                 </p>
                 <h2
                   id="study-module-title"
                   className="font-display text-2xl font-bold text-white mt-1"
                 >
-                  {selectedModule.title}
+                  {activeSelectedModule.title}
                 </h2>
               </div>
               <button
@@ -1727,7 +1807,7 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
             <div className="space-y-5 text-sm text-slate-200 leading-relaxed">
               {/* Embedded YouTube Video Player when Admin attached a YouTube URL */}
               {(() => {
-                const embedUrl = extractYouTubeEmbedUrl(selectedModule.youtubeUrl);
+                const embedUrl = extractYouTubeEmbedUrl(activeSelectedModule.youtubeUrl);
                 if (!embedUrl) return null;
                 return (
                   <div className="space-y-2">
@@ -1737,7 +1817,7 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                     <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-rose-400/35 bg-[#050b18] shadow-lg">
                       <iframe
                         src={embedUrl}
-                        title={`Video ${selectedModule.title}`}
+                        title={`Video ${activeSelectedModule.title}`}
                         className="w-full h-full"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
@@ -1748,19 +1828,22 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
               })()}
 
               {/* PPT / Universal File Attachment Card */}
-              {selectedModule.pptUrl && (() => {
-                const displayName = selectedModule.pptName || `Lampiran ${selectedModule.title}`;
+              {activeSelectedModule.pptUrl && (() => {
+                const displayName = activeSelectedModule.pptName || `Lampiran ${activeSelectedModule.title}`;
                 const extMatch = /\.([a-zA-Z0-9]{1,8})(?:[?#]|$)/.exec(displayName) ||
-                  /\.([a-zA-Z0-9]{1,8})(?:[?#]|$)/.exec(selectedModule.pptUrl);
+                  /\.([a-zA-Z0-9]{1,8})(?:[?#]|$)/.exec(activeSelectedModule.pptUrl);
                 const ext = (extMatch?.[1] || 'FILE').toUpperCase();
                 const isImage = ['PNG', 'JPG', 'JPEG', 'WEBP', 'GIF'].includes(ext);
-                const isLocalUpload = selectedModule.pptUrl.startsWith('/api/material-files/');
+                const isLocalUpload = activeSelectedModule.pptUrl.startsWith('/api/material-files/');
                 const downloadHref = isLocalUpload
-                  ? `${selectedModule.pptUrl}${selectedModule.pptUrl.includes('?') ? '&' : '?'}download=1`
-                  : selectedModule.pptUrl;
+                  ? `${activeSelectedModule.pptUrl}${activeSelectedModule.pptUrl.includes('?') ? '&' : '?'}download=1`
+                  : activeSelectedModule.pptUrl;
 
                 return (
-                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-400/35 space-y-3">
+                  <div
+                    data-testid="module-ppt-card"
+                    className="p-4 rounded-2xl bg-amber-500/10 border border-amber-400/35 space-y-3"
+                  >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-amber-300 flex items-center gap-2">
@@ -1773,7 +1856,7 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                       </div>
                       <div className="flex flex-wrap gap-2 shrink-0">
                         <a
-                          href={selectedModule.pptUrl}
+                          href={activeSelectedModule.pptUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn-gold px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap text-center"
@@ -1787,12 +1870,25 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                         >
                           ⬇️ Unduh
                         </a>
+                        {isAdmin &&
+                          onDeleteMaterialPpt &&
+                          uploadedMaterials.some((u) => u.id === activeSelectedModule.id) && (
+                            <button
+                              type="button"
+                              data-testid="btn-delete-module-ppt"
+                              onClick={() => onDeleteMaterialPpt(activeSelectedModule.id)}
+                              aria-label={`Hapus PPT dari ${activeSelectedModule.title}`}
+                              className="px-3.5 py-2 rounded-xl bg-rose-950/90 hover:bg-rose-900 border border-rose-500/50 text-rose-200 text-xs font-extrabold whitespace-nowrap transition"
+                            >
+                              🗑️ Hapus PPT
+                            </button>
+                          )}
                       </div>
                     </div>
                     {isImage && (
                       <div className="rounded-xl overflow-hidden border border-amber-400/25 bg-slate-950/80">
                         <img
-                          src={selectedModule.pptUrl}
+                          src={activeSelectedModule.pptUrl}
                           alt={displayName}
                           className="w-full max-h-80 object-contain"
                         />
@@ -1802,20 +1898,22 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                 );
               })()}
 
-              <div>
-                <h3 className="text-xs font-bold text-sky-300 mb-2">
-                  Ringkasan Materi
-                </h3>
-                <p className="text-slate-300 whitespace-pre-line">{selectedModule.summary}</p>
-              </div>
+              {activeSelectedModule.summary.trim() && (
+                <div>
+                  <h3 className="text-xs font-bold text-sky-300 mb-2">
+                    Ringkasan Materi
+                  </h3>
+                  <p className="text-slate-300 whitespace-pre-line">{activeSelectedModule.summary}</p>
+                </div>
+              )}
 
-              {selectedModule.keyPoints.length > 0 && (
+              {activeSelectedModule.keyPoints.length > 0 && (
                 <div>
                   <h3 className="text-xs font-bold text-sky-300 mb-2.5">
                     Poin Kunci yang Wajib Dikuasai
                   </h3>
                   <ul className="space-y-2 text-slate-200 text-xs sm:text-sm">
-                    {selectedModule.keyPoints.map((pt, i) => (
+                    {activeSelectedModule.keyPoints.map((pt, i) => (
                       <li key={i} className="flex items-start gap-2.5">
                         <span className="text-sky-400 font-bold tabular-nums">0{i + 1}.</span>
                         <span>{pt}</span>
@@ -1825,13 +1923,13 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                 </div>
               )}
 
-              {selectedModule.formulas.length > 0 && (
+              {activeSelectedModule.formulas.length > 0 && (
                 <div className="p-4 rounded-2xl bg-slate-900/80 border border-sky-400/25 space-y-2">
                   <h3 className="text-xs font-bold text-sky-300">
                     Rumus &amp; Kaidah Penting
                   </h3>
                   <div className="space-y-1.5 font-mono text-xs sm:text-sm text-sky-100">
-                    {selectedModule.formulas.map((f, i) => (
+                    {activeSelectedModule.formulas.map((f, i) => (
                       <p key={i}>{f}</p>
                     ))}
                   </div>
@@ -1840,11 +1938,11 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-sky-400/20">
-              {selectedModule.practiceQuestions.length > 0 && (
+              {activeSelectedModule.practiceQuestions.length > 0 && (
                 <button
                   type="button"
                   onClick={() => {
-                    const room = moduleToPracticeRoom(selectedModule);
+                    const room = moduleToPracticeRoom(activeSelectedModule);
                     setSelectedModule(null);
                     onLaunchQuizRoom(room);
                   }}
@@ -1853,6 +1951,19 @@ export const AcademicPortalsView: React.FC<AcademicPortalsViewProps> = ({
                   Mulai Latihan Kuis Modul Ini
                 </button>
               )}
+              {isAdmin &&
+                onDeleteUploadedMaterial &&
+                uploadedMaterials.some((u) => u.id === activeSelectedModule.id) && (
+                  <button
+                    type="button"
+                    data-testid="btn-delete-module-full"
+                    onClick={() => onDeleteUploadedMaterial(activeSelectedModule.id)}
+                    aria-label={`Hapus materi ${activeSelectedModule.title}`}
+                    className="py-3.5 px-5 rounded-2xl bg-rose-950/90 hover:bg-rose-900 border border-rose-500/50 text-rose-200 text-sm font-bold whitespace-nowrap transition"
+                  >
+                    🗑️ Hapus Materi / Modul
+                  </button>
+                )}
               <button
                 type="button"
                 onClick={() => setSelectedModule(null)}

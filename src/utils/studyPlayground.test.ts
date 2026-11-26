@@ -2,12 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_FLASHCARDS,
+  DEFAULT_SPEED_MATH_DURATION,
+  MAX_SPEED_MATH_DURATION,
+  MIN_SPEED_MATH_DURATION,
+  SPEED_MATH_DURATION_PRESETS,
   calculateSkdPassingGrade,
   calculateSpeedMathPoints,
   calculateUtbkAverage,
+  clampSpeedMathDuration,
   computeDaysRemaining,
   extractYouTubeEmbedUrl,
   generateSpeedMathQuestion,
+  sanitizeSpeedMathDuration,
 } from './studyPlayground';
 
 test('generateSpeedMathQuestion produces valid 4 unique choices containing the exact answer', () => {
@@ -27,6 +33,18 @@ test('calculateSpeedMathPoints scales with difficulty and combo streak', () => {
   assert.equal(calculateSpeedMathPoints('santai', 4), 20);
   assert.equal(calculateSpeedMathPoints('utbk', 1), 20);
   assert.equal(calculateSpeedMathPoints('master', 7), 90);
+});
+
+test('clampSpeedMathDuration and sanitizeSpeedMathDuration enforce valid duration bounds', () => {
+  assert.ok(SPEED_MATH_DURATION_PRESETS.includes(30));
+  assert.ok(SPEED_MATH_DURATION_PRESETS.includes(60));
+  assert.equal(clampSpeedMathDuration(5), MIN_SPEED_MATH_DURATION);
+  assert.equal(clampSpeedMathDuration(999), MAX_SPEED_MATH_DURATION);
+  assert.equal(clampSpeedMathDuration(75.4), 75);
+  assert.equal(clampSpeedMathDuration(Number.NaN), DEFAULT_SPEED_MATH_DURATION);
+  assert.equal(sanitizeSpeedMathDuration('90'), 90);
+  assert.equal(sanitizeSpeedMathDuration('-10'), DEFAULT_SPEED_MATH_DURATION);
+  assert.equal(sanitizeSpeedMathDuration(null), DEFAULT_SPEED_MATH_DURATION);
 });
 
 test('computeDaysRemaining computes future days/hours and handles past dates', () => {

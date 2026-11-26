@@ -11,7 +11,7 @@ export interface CertificateData {
   dateStr: string;
 }
 
-const BRAND_LOGO_URL = '/assets/aistudio/Favicon_0fd84ae5.png';
+const BRAND_LOGO_URL = '/assets/hafiz-logo.png';
 let cachedLogoImg: HTMLImageElement | null = null;
 let logoLoadPromise: Promise<HTMLImageElement | null> | null = null;
 

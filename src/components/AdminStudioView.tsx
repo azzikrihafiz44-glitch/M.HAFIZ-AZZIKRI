@@ -59,6 +59,10 @@ import {
   parseOpenAtInput,
   toDateTimeLocalInput,
 } from '../utils/quizSchedule';
+import {
+  filterStudioMaterials,
+  type MaterialStudioFilter,
+} from '../utils/materialManagement';
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 
@@ -101,7 +105,10 @@ interface AdminStudioViewProps {
   onDeleteRoom: (room: QuizRoom) => void;
   uploadedMaterials: StudyModule[];
   onSaveMaterial: (material: StudyModule) => Promise<void>;
-  onDeleteMaterial: (materialId: string) => Promise<void>;
+  onDeleteMaterial: (materialId: string) => Promise<void> | void;
+  onDeleteMaterialPpt?: (materialId: string) => Promise<void> | void;
+  onDeleteMaterialsBulk?: (materialIds: string[]) => Promise<void> | void;
+  onDiscardUploadedAttachment?: (pptUrl: string) => void;
   liveSessions: LiveTeachingSession[];
   onSaveLiveSession: (session: LiveTeachingSession) => Promise<void>;
   onDeleteLiveSession: (sessionId: string) => Promise<void>;
@@ -220,6 +227,9 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
   uploadedMaterials,
   onSaveMaterial,
   onDeleteMaterial,
+  onDeleteMaterialPpt,
+  onDeleteMaterialsBulk,
+  onDiscardUploadedAttachment,
   liveSessions,
   onSaveLiveSession,
   onDeleteLiveSession,
@@ -235,6 +245,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
 }) => {
   const [siteDraft, setSiteDraft] = useState<SiteSettings>(siteSettings);
   const [savingSite, setSavingSite] = useState(false);
+  const [uploadingIntroVideo, setUploadingIntroVideo] = useState(false);
   const [androidSha256, setAndroidSha256] = useState<string>(() => {
     try {
       return localStorage.getItem('hafiz_android_sha256_v1') || '';
@@ -281,15 +292,42 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
   const [matTarget, setMatTarget] = useState<MaterialTarget>('utbk');
   const [matSubject, setMatSubject] = useState('');
   const [matTitle, setMatTitle] = useState('');
-  const [matSummary, setMatSummary] = useState('');
-  const [matKeyPointsText, setMatKeyPointsText] = useState('');
-  const [matFormulasText, setMatFormulasText] = useState('');
   const [matYoutubeUrl, setMatYoutubeUrl] = useState('');
   const [matPptUrl, setMatPptUrl] = useState('');
   const [matPptName, setMatPptName] = useState('');
   const [matPptSizeLabel, setMatPptSizeLabel] = useState('');
   const [uploadingPptFile, setUploadingPptFile] = useState(false);
   const [savingMaterial, setSavingMaterial] = useState(false);
+  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
+  const [matFilter, setMatFilter] = useState<MaterialStudioFilter>('all');
+  const [matSearchQuery, setMatSearchQuery] = useState('');
+
+  const resetMaterialDraft = () => {
+    setEditingMaterialId(null);
+    setMatSubject('');
+    setMatTitle('');
+    setMatYoutubeUrl('');
+    setMatPptUrl('');
+    setMatPptName('');
+    setMatPptSizeLabel('');
+  };
+
+  const handleLoadMaterialToEditor = (mod: StudyModule) => {
+    setEditingMaterialId(mod.id);
+    if (mod.portal === 'kedinasan') setMatTarget('kedinasan');
+    else if (mod.portal === 'tka')
+      setMatTarget(mod.tkaTrack === 'Soshum' ? 'tka-soshum' : 'tka-saintek');
+    else if (mod.portal === 'sma')
+      setMatTarget(mod.grade === 'XI' ? 'sma-XI' : mod.grade === 'XII' ? 'sma-XII' : 'sma-X');
+    else setMatTarget('utbk');
+    setMatSubject(mod.subject || '');
+    setMatTitle(mod.title || '');
+    setMatYoutubeUrl(mod.youtubeUrl || '');
+    setMatPptUrl(mod.pptUrl || '');
+    setMatPptName(mod.pptName || '');
+    setMatPptSizeLabel('');
+    onNotify(`✏️ Memuat materi "${mod.title}" ke editor untuk diperbarui.`, 'info');
+  };
 
   const handleUploadMaterialAttachment = async (file: File) => {
     const MAX_BYTES = 25 * 1024 * 1024;
@@ -346,6 +384,54 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
     }
   };
 
+  const handleUploadIntroVideo = async (file: File) => {
+    const MAX_BYTES = 25 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      onNotify('Ukuran video intro maksimal 25 MB. Gunakan URL HTTPS jika file lebih besar.', 'warning');
+      return;
+    }
+    setUploadingIntroVideo(true);
+    try {
+      const tokenRes = await fetch('/api/session-token', {
+        method: 'GET',
+        credentials: 'same-origin',
+      });
+      const tokenData = (await tokenRes.json()) as { ok?: boolean; token?: string; error?: string };
+      if (!tokenRes.ok || !tokenData.token) {
+        throw new Error(tokenData.error || 'Gagal memverifikasi sesi browser.');
+      }
+
+      const fileBase64 = await fileToBase64(file);
+      const uploadRes = await fetch('/api/upload-material-file', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hafiz-Token': tokenData.token,
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type || 'video/mp4',
+          fileBase64,
+        }),
+      });
+      const data = (await uploadRes.json()) as {
+        ok?: boolean;
+        url?: string;
+        error?: string;
+      };
+      if (!uploadRes.ok || !data.ok || !data.url) {
+        throw new Error(data.error || 'Gagal mengunggah video intro.');
+      }
+      setSiteDraft((s) => ({ ...s, introVideoUrl: data.url }));
+      onNotify('🎬 Video intro berhasil diunggah! Klik "Publikasikan Update Web" untuk mengaktifkan.', 'success');
+    } catch (err) {
+      onNotify(err instanceof Error ? err.message : 'Gagal mengunggah video intro.', 'error');
+    } finally {
+      setUploadingIntroVideo(false);
+    }
+  };
+
   // Admin-Only Live Teaching (Zoom) Draft State
   const [liveTitle, setLiveTitle] = useState('');
   const [liveTutor, setLiveTutor] = useState('');
@@ -355,46 +441,9 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
   const [liveIsNow, setLiveIsNow] = useState(true);
   const [savingLive, setSavingLive] = useState(false);
 
-  const handleMaterialFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-    try {
-      let extractedText = '';
-      if (ext === 'docx') {
-        const res = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-        extractedText = res.value;
-      } else {
-        extractedText = await file.text();
-      }
-      const lines = extractedText
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter(Boolean);
-      if (lines.length === 0) {
-        onNotify('File materi kosong atau tidak dapat dibaca.', 'warning');
-        return;
-      }
-      if (!matTitle.trim()) {
-        setMatTitle(file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').slice(0, 180));
-      }
-      const summaryLines = lines.slice(0, 4).join('\n');
-      const bulletLines = lines.slice(4, 18);
-      setMatSummary(summaryLines.slice(0, 3500));
-      if (bulletLines.length > 0) {
-        setMatKeyPointsText(bulletLines.join('\n'));
-      }
-      onNotify(`📄 Isi file materi "${file.name}" berhasil dibaca otomatis!`, 'success');
-    } catch {
-      onNotify('Gagal membaca file materi. Gunakan format .DOCX, .TXT, atau .MD.', 'error');
-    } finally {
-      e.target.value = '';
-    }
-  };
-
   const handleSubmitMaterial = async () => {
-    if (!matTitle.trim() || !matSummary.trim()) {
-      onNotify('Isi Judul Materi dan Ringkasan Materi terlebih dahulu.', 'warning');
+    if (!matTitle.trim()) {
+      onNotify('Isi Judul Materi terlebih dahulu.', 'warning');
       return;
     }
     setSavingMaterial(true);
@@ -428,43 +477,31 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
         subtitle = 'Kurikulum SMA/MA · Kelas XII';
       }
 
-      const keyPoints = matKeyPointsText
-        .split(/\r?\n/)
-        .map((l) => l.replace(/^[-•*0-9.)\s]+/, '').trim())
-        .filter(Boolean);
-      const formulas = matFormulasText
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter(Boolean);
+      const existingModule = editingMaterialId
+        ? uploadedMaterials.find((m) => m.id === editingMaterialId)
+        : undefined;
 
       const newMod: StudyModule = {
-        id: `mat-${Date.now().toString(36)}`,
+        id: editingMaterialId || `mat-${Date.now().toString(36)}`,
         portal,
         grade,
         tkaTrack,
         subject: matSubject.trim() || subtitle,
         title: matTitle.trim(),
         subtitle,
-        readMinutes: Math.max(3, Math.ceil((matSummary.length + matKeyPointsText.length) / 350)),
-        summary: matSummary.trim(),
-        keyPoints,
-        formulas,
+        readMinutes: 5,
+        summary: '',
+        keyPoints: [],
+        formulas: [],
         youtubeUrl: matYoutubeUrl.trim() || undefined,
         pptUrl: matPptUrl.trim() || undefined,
         pptName: matPptName.trim() || undefined,
-        practiceQuestions: [],
+        practiceQuestions: existingModule?.practiceQuestions ?? [],
         updatedAt: new Date().toISOString(),
       };
 
       await onSaveMaterial(newMod);
-      setMatSubject('');
-      setMatTitle('');
-      setMatSummary('');
-      setMatKeyPointsText('');
-      setMatFormulasText('');
-      setMatYoutubeUrl('');
-      setMatPptUrl('');
-      setMatPptName('');
+      resetMaterialDraft();
     } finally {
       setSavingMaterial(false);
     }
@@ -1173,7 +1210,9 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <p className="text-amber-300 text-xs font-extrabold">
-              Mode Admin Terverifikasi &bull; Database Cloud Aktif
+              {isGoogleAdminVerified
+                ? 'Mode Admin Google · Database Cloud & Server Aktif'
+                : 'Mode Admin Studio · Penyimpanan Server Permanen Aktif'}
             </p>
             <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5">
               Quiz Studio &amp; Manajemen Room Hafiz Education
@@ -1189,28 +1228,28 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
             <button
               type="button"
               onClick={onExportExcel}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition whitespace-nowrap"
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition whitespace-nowrap shrink-0"
             >
               <span aria-hidden="true">📊</span> Rekap Nilai Excel (.xlsx)
             </button>
             <button
               type="button"
               onClick={onOpenGoogleScriptModal}
-              className="px-4 py-2.5 rounded-xl bg-sky-600/30 hover:bg-sky-600/50 border border-sky-400/40 text-sky-200 font-bold text-xs flex items-center gap-1.5 transition whitespace-nowrap"
+              className="px-4 py-2.5 rounded-xl bg-sky-600/30 hover:bg-sky-600/50 border border-sky-400/40 text-sky-200 font-bold text-xs flex items-center gap-1.5 transition whitespace-nowrap shrink-0"
             >
               <span aria-hidden="true">🔗</span> Google Sheets &amp; Keamanan
             </button>
             <button
               type="button"
               onClick={onCloseStudio}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition whitespace-nowrap"
+              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition whitespace-nowrap shrink-0"
             >
               ← Beranda
             </button>
             <button
               type="button"
               onClick={onGoogleAdminLogout}
-              className="px-4 py-2.5 rounded-xl bg-rose-950/85 hover:bg-rose-900 border border-rose-400/40 text-rose-200 font-bold text-xs transition whitespace-nowrap"
+              className="px-4 py-2.5 rounded-xl bg-rose-950/85 hover:bg-rose-900 border border-rose-400/40 text-rose-200 font-bold text-xs transition whitespace-nowrap shrink-0"
             >
               🚪 Keluar Admin
             </button>
@@ -1223,21 +1262,19 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
             {isGoogleAdminVerified && googleAdminEmail ? (
               <>
                 <p className="font-extrabold text-emerald-300">
-                  ☁️ Database Cloud Firebase Terhubung ({googleAdminEmail})
+                  ☁️ Database Cloud Firebase &amp; Server Terhubung ({googleAdminEmail})
                 </p>
                 <p className="text-[11px] text-slate-400">
-                  Semua room kuis &amp; riwayat nilai peserta tersimpan permanen di cloud dan
-                  dilindungi Firestore Security Rules.
+                  Semua room kuis, materi belajar &amp; riwayat nilai peserta tersimpan permanen di server serta Cloud Firestore.
                 </p>
               </>
             ) : (
               <>
-                <p className="font-extrabold text-amber-300">
-                  🔒 Mode Lokal Aktif — Login Google Admin untuk Sinkron Database Cloud
+                <p className="font-extrabold text-sky-300">
+                  🛡️ Sesi Admin Studio Aktif — Penyimpanan Server Permanen Terhubung
                 </p>
                 <p className="text-[11px] text-slate-400">
-                  Riwayat peserta tetap terkirim ke cloud otomatis; login Google Admin untuk
-                  menerbitkan room lintas perangkat &amp; memuat seluruh arsip cloud.
+                  Materi, PPT, room soal, &amp; database peserta tetap tersimpan permanen lintas reload. Hubungkan Google Admin bila ingin sinkronisasi tambahan ke Firebase Cloud.
                 </p>
               </>
             )}
@@ -1271,6 +1308,29 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
               </button>
             )}
           </div>
+        </div>
+
+        {/* Quick Section Jump Bar */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          {[
+            { id: 'studio-questions-editor', label: '📚 Editor & Paket Soal' },
+            { id: 'admin-upload-material-section', label: '📘 Upload Materi & PPT' },
+            { id: 'admin-live-zoom-section', label: '🎥 Live Zoom' },
+            { id: 'admin-site-cms-section', label: '🌐 Pengaturan Web' },
+            { id: 'admin-store-launch-center', label: '🚀 Launch Store' },
+            { id: 'admin-participant-database', label: '👥 Database Peserta' },
+          ].map((sec) => (
+            <button
+              key={sec.id}
+              type="button"
+              onClick={() =>
+                document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+              className="px-3 py-1.5 rounded-xl bg-slate-900/85 hover:bg-slate-800 border border-sky-400/25 text-sky-200 text-[11px] font-bold whitespace-nowrap shrink-0 transition"
+            >
+              {sec.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -1990,22 +2050,14 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                           >
                             {sched.isClosed ? '🔓 Buka Soal' : '🔒 Tutup Soal'}
                           </button>
-                          {isGoogleAdminVerified ? (
-                            <button
-                              type="button"
-                              onClick={() => onDeleteRoom(r)}
-                              className="px-2.5 py-1 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-[11px] font-bold transition"
-                            >
-                              🗑️ Hapus
-                            </button>
-                          ) : (
-                            <span
-                              title="Login Google Admin diperlukan untuk menghapus soal"
-                              className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-500 text-[11px] font-semibold"
-                            >
-                              🔒 Hapus (Khusus Admin)
-                            </span>
-                          )}
+                          <button
+                            type="button"
+                            data-testid={`studio-btn-delete-room-${r.code}`}
+                            onClick={() => onDeleteRoom(r)}
+                            className="px-2.5 py-1 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-200 text-[11px] font-bold transition"
+                          >
+                            🗑️ Hapus
+                          </button>
                         </div>
                       </div>
                     );
@@ -2516,7 +2568,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
           </div>
 
           {/* Live Teaching Zoom Management (Khusus Admin) */}
-          <div className="glass-card p-5 rounded-3xl space-y-4 border-rose-500/35">
+          <div id="admin-live-zoom-section" className="glass-card p-5 rounded-3xl space-y-4 border-rose-500/35 scroll-mt-24">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-extrabold text-white flex items-center gap-2">
@@ -2657,25 +2709,16 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
           </div>
 
           {/* Upload & Kelola Materi Belajar (UTBK, Kedinasan, Modul TKA, Kelas X-XII + Video YouTube & PPT) */}
-          <div className="glass-card p-5 rounded-3xl space-y-4 border-cyan-500/35">
+          <div id="admin-upload-material-section" className="glass-card p-5 rounded-3xl space-y-4 border-cyan-500/35 scroll-mt-24">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-extrabold text-white flex items-center gap-2">
                   <span aria-hidden="true">📘</span> Upload &amp; Kelola Materi Belajar ({uploadedMaterials.length})
                 </h3>
                 <p className="text-[11px] text-slate-400">
-                  Unggah materi <strong>Kelas X–XII</strong>, <strong>Kedinasan</strong>, <strong>UTBK-SNBT</strong>, &amp; <strong>Modul TKA</strong> — mendukung <strong>Video Link YouTube</strong> &amp; <strong>Slide PPT</strong>.
+                  Unggah materi <strong>Kelas X–XII</strong>, <strong>Kedinasan</strong>, <strong>UTBK-SNBT</strong>, &amp; <strong>Modul TKA</strong> — mendukung <strong>Video Link YouTube</strong> &amp; <strong>Slide PPT / File Lampiran</strong>.
                 </p>
               </div>
-              <label className="px-3 py-1.5 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-400/40 text-cyan-200 font-bold text-xs cursor-pointer whitespace-nowrap">
-                📄 Isi dari File (.DOCX/.TXT/.MD)
-                <input
-                  type="file"
-                  accept=".docx,.txt,.md"
-                  className="hidden"
-                  onChange={handleMaterialFileUpload}
-                />
-              </label>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2684,6 +2727,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                   Portal Tujuan Materi
                 </label>
                 <select
+                  data-testid="studio-select-mat-portal"
                   value={matTarget}
                   onChange={(e) => setMatTarget(e.target.value as MaterialTarget)}
                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-cyan-100 font-bold outline-none focus:border-cyan-400"
@@ -2703,6 +2747,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                 </label>
                 <input
                   type="text"
+                  data-testid="studio-input-mat-subject"
                   value={matSubject}
                   onChange={(e) => setMatSubject(e.target.value)}
                   placeholder="Contoh: TWK / TIU / Matematika X / Fisika XII"
@@ -2715,6 +2760,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                 </label>
                 <input
                   type="text"
+                  data-testid="studio-input-mat-title"
                   value={matTitle}
                   onChange={(e) => setMatTitle(e.target.value)}
                   placeholder="Contoh: Eksponen & Logaritma Lengkap + Video Pembahasan"
@@ -2727,6 +2773,7 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                 </label>
                 <input
                   type="url"
+                  data-testid="studio-input-mat-youtube"
                   value={matYoutubeUrl}
                   onChange={(e) => setMatYoutubeUrl(e.target.value)}
                   placeholder="https://www.youtube.com/watch?v=... atau https://youtu.be/..."
@@ -2773,13 +2820,21 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                     <button
                       type="button"
                       onClick={() => {
+                        const prevDraftUrl = matPptUrl;
+                        const savedWithSameUrl = uploadedMaterials.some(
+                          (m) => m.pptUrl === prevDraftUrl
+                        );
+                        if (prevDraftUrl && !savedWithSameUrl) {
+                          onDiscardUploadedAttachment?.(prevDraftUrl);
+                        }
                         setMatPptUrl('');
                         setMatPptName('');
                         setMatPptSizeLabel('');
                       }}
+                      aria-label="Hapus file PPT lampiran dari draf materi"
                       className="px-2 py-1 rounded-lg bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold text-[11px] shrink-0"
                     >
-                      ✕ Hapus
+                      ✕ Hapus PPT
                     </button>
                   </div>
                 )}
@@ -2814,92 +2869,165 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="sm:col-span-2">
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  Ringkasan / Isi Materi
-                </label>
-                <textarea
-                  rows={3}
-                  value={matSummary}
-                  onChange={(e) => setMatSummary(e.target.value)}
-                  placeholder="Tulis ringkasan konsep atau unggah file .DOCX/.TXT di atas..."
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 outline-none focus:border-cyan-400"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  Poin Kunci (1 baris = 1 poin, opsional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={matKeyPointsText}
-                  onChange={(e) => setMatKeyPointsText(e.target.value)}
-                  placeholder={'Poin 1...\nPoin 2...'}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 outline-none focus:border-cyan-400"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  Rumus / Kaidah Penting (1 baris = 1 rumus, opsional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={matFormulasText}
-                  onChange={(e) => setMatFormulasText(e.target.value)}
-                  placeholder={'F = m · a\npH = -log[H+]'}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 font-mono outline-none focus:border-cyan-400"
-                />
-              </div>
             </div>
 
-            <button
-              type="button"
-              disabled={savingMaterial}
-              onClick={handleSubmitMaterial}
-              className="btn-3d w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 disabled:opacity-60 text-slate-950 font-extrabold text-xs sm:text-sm"
-            >
-              {savingMaterial ? 'Menyimpan Materi...' : '📘 Simpan & Publikasikan Materi Belajar'}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                data-testid="studio-btn-publish-material"
+                disabled={savingMaterial}
+                onClick={handleSubmitMaterial}
+                className="btn-3d flex-1 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 disabled:opacity-60 text-slate-950 font-extrabold text-xs sm:text-sm"
+              >
+                {savingMaterial
+                  ? 'Menyimpan Materi...'
+                  : editingMaterialId
+                    ? '💾 Perbarui Materi & Lampiran'
+                    : '📘 Simpan & Publikasikan Materi Belajar'}
+              </button>
+              {editingMaterialId && (
+                <button
+                  type="button"
+                  onClick={resetMaterialDraft}
+                  className="px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold text-xs whitespace-nowrap"
+                >
+                  Batal Edit
+                </button>
+              )}
+            </div>
 
-            {uploadedMaterials.length > 0 && (
-              <div className="space-y-2 max-h-52 overflow-y-auto custom-scrollbar pr-1 pt-2 border-t border-slate-800">
-                {uploadedMaterials.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-bold text-white truncate">
-                        {m.title}
-                        {m.youtubeUrl ? ' 🎬' : ''}
-                        {m.pptUrl ? ' 📊' : ''}
-                      </p>
-                      <p className="text-[11px] text-cyan-300 truncate">
-                        {m.portal === 'sma'
-                          ? `Kelas ${m.grade}`
-                          : m.portal === 'kedinasan'
-                            ? 'Portal Kedinasan'
-                            : m.portal === 'tka'
-                              ? `Modul TKA ${m.tkaTrack || ''}`
-                              : 'Materi UTBK-SNBT'}{' '}
-                        · {m.subject}
-                      </p>
+            {uploadedMaterials.length > 0 && (() => {
+              const filteredMaterials = filterStudioMaterials(uploadedMaterials, {
+                filter: matFilter,
+                query: matSearchQuery,
+              });
+              const pptCount = uploadedMaterials.filter((m) => Boolean(m.pptUrl?.trim())).length;
+
+              return (
+                <div className="space-y-3 pt-3 border-t border-slate-800">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {(
+                        [
+                          { id: 'all', label: `Semua (${uploadedMaterials.length})` },
+                          { id: 'with-ppt', label: `Ada PPT 📊 (${pptCount})` },
+                          { id: 'utbk', label: 'UTBK' },
+                          { id: 'tka', label: 'TKA' },
+                          { id: 'kedinasan', label: 'Kedinasan' },
+                          { id: 'sma', label: 'Kelas X–XII' },
+                        ] as const
+                      ).map((chip) => (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          onClick={() => setMatFilter(chip.id)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
+                            matFilter === chip.id
+                              ? 'bg-cyan-500/25 border border-cyan-400/60 text-cyan-100'
+                              : 'bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-white'
+                          }`}
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteMaterial(m.id)}
-                      className="px-2.5 py-1 rounded-lg bg-rose-950 hover:bg-rose-900 text-rose-300 font-bold text-[11px] shrink-0"
-                    >
-                      Hapus
-                    </button>
+                    {onDeleteMaterialsBulk && filteredMaterials.length > 0 && (
+                      <button
+                        type="button"
+                        data-testid="btn-delete-materials-bulk"
+                        onClick={() =>
+                          onDeleteMaterialsBulk(filteredMaterials.map((item) => item.id))
+                        }
+                        className="px-3 py-1.5 rounded-lg bg-rose-950/90 hover:bg-rose-900 border border-rose-500/45 text-rose-200 font-bold text-[11px] whitespace-nowrap self-start sm:self-auto"
+                      >
+                        🗑️ Hapus Terfilter ({filteredMaterials.length})
+                      </button>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+
+                  <input
+                    type="search"
+                    value={matSearchQuery}
+                    onChange={(e) => setMatSearchQuery(e.target.value)}
+                    placeholder="Cari judul materi, mapel, atau nama file PPT..."
+                    aria-label="Cari materi belajar"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none focus:border-cyan-400"
+                  />
+
+                  {filteredMaterials.length === 0 ? (
+                    <p className="text-xs text-slate-400 text-center py-4">
+                      Tidak ada materi yang cocok dengan filter ini.
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                      {filteredMaterials.map((m) => (
+                        <div
+                          key={m.id}
+                          data-testid={`studio-material-row-${m.id}`}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-bold text-white truncate">
+                              {m.title}
+                              {m.youtubeUrl ? ' 🎬' : ''}
+                              {m.pptUrl ? ' 📊' : ''}
+                            </p>
+                            <p className="text-[11px] text-cyan-300 truncate">
+                              {m.portal === 'sma'
+                                ? `Kelas ${m.grade}`
+                                : m.portal === 'kedinasan'
+                                  ? 'Portal Kedinasan'
+                                  : m.portal === 'tka'
+                                    ? `Modul TKA ${m.tkaTrack || ''}`
+                                    : 'Materi UTBK-SNBT'}{' '}
+                              · {m.subject}
+                              {m.pptName ? ` · 📊 ${m.pptName}` : ''}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleLoadMaterialToEditor(m)}
+                              aria-label={`Edit materi ${m.title}`}
+                              className="px-2.5 py-1 rounded-lg bg-sky-950/90 hover:bg-sky-900 border border-sky-500/40 text-sky-200 font-bold text-[11px] whitespace-nowrap"
+                            >
+                              ✏️ Edit
+                            </button>
+                            {m.pptUrl && onDeleteMaterialPpt && (
+                              <button
+                                type="button"
+                                data-testid={`studio-btn-delete-ppt-${m.id}`}
+                                onClick={() => onDeleteMaterialPpt(m.id)}
+                                aria-label={`Hapus PPT ${m.title}`}
+                                className="px-2.5 py-1 rounded-lg bg-amber-950/90 hover:bg-amber-900 border border-amber-500/45 text-amber-200 font-bold text-[11px] whitespace-nowrap"
+                              >
+                                Hapus PPT
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              data-testid={`studio-btn-delete-mat-${m.id}`}
+                              onClick={() => {
+                                if (editingMaterialId === m.id) resetMaterialDraft();
+                                void onDeleteMaterial(m.id);
+                              }}
+                              aria-label={`Hapus materi ${m.title}`}
+                              className="px-2.5 py-1 rounded-lg bg-rose-950 hover:bg-rose-900 border border-rose-500/40 text-rose-300 font-bold text-[11px] whitespace-nowrap"
+                            >
+                              🗑️ Hapus
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Live Website Update & CMS Panel (Admin Only) */}
-          <div className="glass-card p-5 rounded-3xl space-y-4 border-sky-500/35">
+          <div id="admin-site-cms-section" className="glass-card p-5 rounded-3xl space-y-4 border-sky-500/35 scroll-mt-24">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-extrabold text-white flex items-center gap-2">
@@ -2973,6 +3101,55 @@ export const AdminStudioView: React.FC<AdminStudioViewProps> = ({
                   onChange={(e) => setSiteDraft((s) => ({ ...s, announcement: e.target.value }))}
                   placeholder="Contoh: Kuis Olimpiade Sains dimulai pukul 09.00 WIB — Siapkan akun peserta!"
                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-amber-500/40 text-xs text-amber-100 outline-none focus:border-amber-400"
+                />
+              </div>
+              <div className="sm:col-span-2 p-3.5 rounded-2xl bg-sky-500/10 border border-sky-400/30 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-extrabold text-sky-200">
+                      🎬 Video Intro Awal Sebelum Dashboard (Opsional)
+                    </p>
+                    <p className="text-[11px] text-slate-300">
+                      Secara bawaan memakai animasi Kosmik Supernova Hafiz Education, atau unggah video .MP4/.WEBM (maks. 25 MB).
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-[11px] transition whitespace-nowrap">
+                      <span>{uploadingIntroVideo ? '⏳ Mengunggah...' : '📤 Upload Video'}</span>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,.mp4,.webm"
+                        disabled={uploadingIntroVideo}
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void handleUploadIntroVideo(f);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                    {siteDraft.introVideoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prevUrl = siteDraft.introVideoUrl;
+                          if (prevUrl) onDiscardUploadedAttachment?.(prevUrl);
+                          setSiteDraft((s) => ({ ...s, introVideoUrl: '' }));
+                        }}
+                        className="px-2.5 py-1.5 rounded-xl bg-rose-950 hover:bg-rose-900 border border-rose-500/40 text-rose-200 font-bold text-[11px] whitespace-nowrap"
+                      >
+                        ✕ Pakai Bawaan
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  maxLength={500}
+                  value={siteDraft.introVideoUrl || ''}
+                  onChange={(e) => setSiteDraft((s) => ({ ...s, introVideoUrl: e.target.value }))}
+                  placeholder="Kosong = Animasi Kosmik Supernova Bawaan, atau tempel URL video .mp4 HTTPS"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-sky-400/35 text-xs text-sky-100 outline-none focus:border-sky-400"
                 />
               </div>
             </div>

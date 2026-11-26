@@ -320,43 +320,52 @@ export const ParticipantAuthModal: React.FC<ParticipantAuthModalProps> = ({
         {/* Signed out: Primary Google Auth + Nama/Kata Sandi Tabs */}
         {!userEmail ? (
           <>
-            {googleRecoveryMessage && (
-              <div
-                id="google-popup-recovery-panel"
-                className="p-4 rounded-2xl bg-amber-500/12 border border-amber-400/45 space-y-3"
-              >
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-amber-300">
-                    Pop-up Login Google Dibatasi Browser
-                  </p>
-                  <p className="text-xs text-slate-200 leading-relaxed">
-                    {googleRecoveryMessage}
-                  </p>
+            {googleRecoveryMessage && (() => {
+              const isDomainIssue =
+                googleRecoveryMessage.includes('Authorized Domains') ||
+                googleRecoveryMessage.includes('diotorisasi');
+              return (
+                <div
+                  id="google-popup-recovery-panel"
+                  className="p-4 rounded-2xl bg-amber-500/12 border border-amber-400/45 space-y-3"
+                >
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-amber-300">
+                      {isDomainIssue
+                        ? 'Otorisasi Domain Login Google Diperlukan'
+                        : 'Pop-up Login Google Dibatasi Browser'}
+                    </p>
+                    <p className="text-xs text-slate-200 leading-relaxed">
+                      {googleRecoveryMessage}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('register');
+                        onClearGoogleRecovery?.();
+                      }}
+                      className="btn-gold px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5"
+                    >
+                      <span>Daftar / Masuk Tanpa Pop-up</span>
+                      <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                    {!isDomainIssue && (
+                      <a
+                        href={typeof window !== 'undefined' ? window.location.href : '/'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        id="link-open-fulltab-login"
+                        className="px-3.5 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-100 text-xs font-bold transition inline-flex items-center gap-1.5"
+                      >
+                        <span>Buka di Tab Baru</span>
+                      </a>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href={typeof window !== 'undefined' ? window.location.href : '/'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    id="link-open-fulltab-login"
-                    className="btn-gold px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5"
-                  >
-                    <span>Buka di Tab Baru (Anti Blokir)</span>
-                    <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTab('register');
-                      onClearGoogleRecovery?.();
-                    }}
-                    className="px-3.5 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-100 text-xs font-bold transition"
-                  >
-                    Daftar Tanpa Pop-up
-                  </button>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {onGoogleLogin && (
               <div className="space-y-3">

@@ -1,35 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0b1120" />
-      <stop offset="50%" stop-color="#172554" />
-      <stop offset="100%" stop-color="#0f172a" />
+    <linearGradient id="emeraldBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#053b38" />
+      <stop offset="55%" stop-color="#032625" />
+      <stop offset="100%" stop-color="#011515" />
     </linearGradient>
-    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="50%" stop-color="#818cf8" />
-      <stop offset="100%" stop-color="#2dd4bf" />
+    <linearGradient id="goldLeaf" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#eab308" />
+      <stop offset="100%" stop-color="#b45309" />
     </linearGradient>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fde68a" />
-      <stop offset="50%" stop-color="#f59e0b" />
-      <stop offset="100%" stop-color="#38bdf8" />
+    <linearGradient id="domeGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#047857" />
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
-  <circle cx="256" cy="256" r="184" fill="none" stroke="url(#ringGrad)" stroke-width="18" opacity="0.88" />
-  <circle cx="256" cy="256" r="152" fill="#0f172a" opacity="0.85" />
-  <circle cx="112" cy="128" r="7" fill="#38bdf8" opacity="0.9" />
-  <circle cx="398" cy="116" r="5" fill="#a78bfa" opacity="0.85" />
-  <circle cx="404" cy="390" r="6" fill="#2dd4bf" opacity="0.85" />
-  <!-- Bold Geometric H Crest -->
-  <path
-    d="M172 160 L214 160 L214 236 L298 236 L298 160 L340 160 L340 352 L298 352 L298 274 L214 274 L214 352 L172 352 Z"
-    fill="url(#goldGrad)"
-  />
-  <!-- Spark Star -->
-  <path
-    d="M256 106 L264 128 L286 136 L264 144 L256 166 L248 144 L226 136 L248 128 Z"
-    fill="#fde68a"
-  />
+  <rect width="512" height="512" rx="112" fill="url(#emeraldBg)" />
+  <circle cx="256" cy="256" r="218" fill="none" stroke="url(#goldLeaf)" stroke-width="6" opacity="0.45" />
+  <!-- Dome Spire -->
+  <path d="M256 96 C268 128 312 146 312 192 C312 222 288 242 256 242 C224 242 200 222 200 192 C200 146 244 128 256 96 Z" fill="url(#domeGlow)" stroke="url(#goldLeaf)" stroke-width="6" />
+  <!-- Top 4-point Star -->
+  <path d="M256 62 L263 79 L280 86 L263 93 L256 110 L249 93 L232 86 L249 79 Z" fill="#fef08a" />
+  <!-- Open Book -->
+  <path d="M108 214 Q186 206 256 264 Q326 206 404 214 L404 342 Q324 334 256 382 Q188 334 108 342 Z" fill="#064e3b" stroke="url(#goldLeaf)" stroke-width="12" stroke-linejoin="round" />
+  <path d="M256 264 L256 382" stroke="url(#goldLeaf)" stroke-width="10" stroke-linecap="round" />
+  <path d="M90 356 Q178 348 256 394 Q334 348 422 356" fill="none" stroke="url(#goldLeaf)" stroke-width="10" stroke-linecap="round" />
+  <!-- Botanical Crescent Accent -->
+  <path d="M256 318 C274 270 318 240 356 230 C328 262 308 292 276 322 Z" fill="url(#domeGlow)" stroke="url(#goldLeaf)" stroke-width="5" />
 </svg>
